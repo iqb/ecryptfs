@@ -97,13 +97,8 @@ final class Tag70Packet
         }
         $cur++;
         
-        $key = \hex2bin($manager->getKey($tag->signature));
-        $algo = "AES-256-ECB";
-        
         $tag->encryptedFilename = \substr($data, $cur, $tag->blockAlignedFilenameSize);
-        if (false === ($decrypted = \openssl_decrypt($tag->encryptedFilename, $algo, $key, \OPENSSL_RAW_DATA|\OPENSSL_NO_PADDING))) {
-            throw new \DomainException("Corrupt data packet, decryption error: " . \openssl_error_string());
-        }
+        $decrypted = $manager->decrypt($tag->signature, $tag->cipherCode, $tag->encryptedFilename);
         $cur += $tag->blockAlignedFilenameSize;
         list($tag->padding, $tag->decryptedFilename) = \explode("\0", $decrypted);
         
