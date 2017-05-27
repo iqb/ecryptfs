@@ -1,0 +1,26 @@
+{
+    "name": "iqb/ecryptfs",
+    "description": "Userland EcryptFS library written in PHP.",
+    "authors": [
+        {
+            "name": "Dennis Birkholz",
+            "email": "ecryptfs@birkholz.org"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Iqb\\Ecryptfs\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Iqb\\Ecryptfs\\": "tests/"
+        }
+    },
+    "require": {
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.*"
+    }
+}
