@@ -22,14 +22,20 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $manager = new Manager();
         $manager->usePassphrase('test');
         
+        $fekek = 'd395309aaad4de06';
+        $fnek = 'be877764c5918621';
         $keys_ref = [
             // File encryption key encryption key (aka data key) for passphrase "test"
-            'd395309aaad4de06' => '58116605277520b3fa1315497f2089514d53100b08096ee8ab2c752c96ebfc7e8d270fce370c29b1afe1cde71ec6218c6fa62b7500b3b14e7456b6f53eb38580',
+             $fekek => '58116605277520b3fa1315497f2089514d53100b08096ee8ab2c752c96ebfc7e8d270fce370c29b1afe1cde71ec6218c6fa62b7500b3b14e7456b6f53eb38580',
             
             // File name encryption key for passphrase "test" 
-            'be877764c5918621' => 'ac4007120f27ff0d0c30ce723432d13c24dccb0c0a4e3b5ae4beece867b1968685ff009e5fb62960b904ec7f0d853447f11c1a75d63b97fb98b3f4ee374052f8',
+            $fnek => 'ac4007120f27ff0d0c30ce723432d13c24dccb0c0a4e3b5ae4beece867b1968685ff009e5fb62960b904ec7f0d853447f11c1a75d63b97fb98b3f4ee374052f8',
         ];
         
         $this->assertEquals($keys_ref, $manager->getKeys());
+        $this->assertEquals($fekek, $manager->getDefaultFEKEK());
+        $this->assertEquals($keys_ref[$fekek], $manager->getKey($fekek));
+        $this->assertEquals($fnek, $manager->getDefaultFNEK());
+        $this->assertEquals($keys_ref[$fnek], $manager->getKey($fnek));
     }
 }
