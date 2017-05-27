@@ -10,6 +10,11 @@
 namespace Iqb\Ecryptfs;
 
 /**
+ * Filename prefix for encrypted file names
+ */
+const ECRYPTFS_PREFIX = 'ECRYPTFS_FNEK_ENCRYPTED.';
+
+/**
  * Number of bytes to use from the supplied salt.
  */
 const ECRYPTFS_SALT_SIZE = 8;
@@ -47,6 +52,27 @@ const ECRYPTFS_SIG_SIZE = 8;
  * Algorith used to generate keys from the supplied passphrase
  */
 const ECRYPTFS_KEY_DERIVATION_ALGO = "sha512";
+
+const RFC2440_CIPHER_DES3_EDE = 0x02;
+const RFC2440_CIPHER_CAST_5 = 0x03;
+const RFC2440_CIPHER_BLOWFISH = 0x04;
+const RFC2440_CIPHER_AES_128 = 0x07;
+const RFC2440_CIPHER_AES_192 = 0x08;
+const RFC2440_CIPHER_AES_256 = 0x09;
+const RFC2440_CIPHER_TWOFISH = 0x0a;
+const RFC2440_CIPHER_CAST_6 = 0x0b;
+    
+const RFC2440_CIPHER_CODE_TO_STRING_MAPPING = [
+    RFC2440_CIPHER_DES3_EDE => "des3_ede",
+    RFC2440_CIPHER_CAST_5   => "cast5",
+    RFC2440_CIPHER_BLOWFISH => "blowfish",
+    RFC2440_CIPHER_AES_128  => "aes128",
+    RFC2440_CIPHER_AES_192  => "aes192",
+    RFC2440_CIPHER_AES_256  => "aes256",
+    RFC2440_CIPHER_TWOFISH  => "twofish",
+    RFC2440_CIPHER_CAST_6   => "cast6",
+];
+
 
 /**
  * This is the entry point for all EcryptFS operations.
@@ -152,5 +178,31 @@ class Manager
         if (!$this->defaultFEKEK) {
             $this->defaultFEKEK = $fekek;
         }
+    }
+    
+    
+    /**
+     * Decrypt the supplied filename and return the corresponding Tag70Packet
+     */
+    public function getTag70PacketFromFilename(string $filename) : Tag70Packet
+    {
+        $filename = \basename($filename);
+        
+        if (\substr($filename, 0, \strlen(ECRYPTFS_PREFIX)) !== ECRYPTFS_PREFIX) {
+            throw new \DomainException("Supplied filename '$filename' misses required prefix '" . ECRYPTFS_PREFIX . "'");
+        }
+        
+        $decodedFilename = BaseConverter::decode(\substr($filename, \strlen(ECRYPTFS_PREFIX)));
+        
+        return Tag70Packet::parse($this, $decodedFilename);
+    }
+    
+    
+    /**
+     * Decrypt the supplied filename.
+     */
+    public function decryptFilename(string $filename) : string
+    {
+        return $this->getTag70PacketFromFilename($filename)->decryptedFilename;
     }
 }
