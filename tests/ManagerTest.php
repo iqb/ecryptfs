@@ -38,4 +38,24 @@ class ManagerTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals($fnek, $manager->getDefaultFNEK());
         $this->assertEquals($keys_ref[$fnek], $manager->getKey($fnek));
     }
+    
+    /**
+     * @test
+     */
+    public function testDecryptFilename()
+    {
+        $manager = new Manager();
+        $manager->usePassphrase('test');
+        
+        $names = [
+            "ECRYPTFS_FNEK_ENCRYPTED.FWayVrRYlN446EY.WUc7GBFqG9GB6qF3eRmJmz2V58c8wgb5UiUhMwEdok--" => "a filename.txt",
+            "ECRYPTFS_FNEK_ENCRYPTED.FXayVrRYlN446EY.WUc7GBFqG9GB6qF3eRmJeRV3PRUhjTfza-to3TubMHz-pjq93YvUYPB0LUQxtDk-" => "another file.pdf",
+            "ECRYPTFS_FNEK_ENCRYPTED.FXayVrRYlN446EY.WUc7GBFqG9GB6qF3eRmJCUa6.nXv4qOGpN5vz9sDHdzgUt6ewfDTuJM2wpHxEmc-" => "the F1n4l T3st.docx",
+        ];
+        
+        foreach ($names as $encname => $decname) {
+            $filename = $manager->decryptFilename($encname);
+            $this->assertEquals($decname, $filename);
+        }
+    }
 }
