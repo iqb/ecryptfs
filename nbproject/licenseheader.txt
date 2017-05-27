@@ -1,0 +1,10 @@
+<#if licenseFirst??>
+${licenseFirst}
+</#if>
+${licensePrefix}This file is part of the PHP EcryptFS library.
+${licensePrefix}(c) 2017 by Dennis Birkholz
+${licensePrefix}All rights reserved.
+${licensePrefix}For the license to use this library, see the provided LICENSE file.
+<#if licenseLast??>
+${licenseLast}
+</#if>
