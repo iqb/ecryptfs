@@ -44,14 +44,29 @@ const ECRYPTFS_DEFAULT_SALT_FNEK = "99887766";
 const ECRYPTFS_DEFAULT_NUM_HASH_ITERATIONS = 65536;
 
 /**
+ * Algorith used to generate keys from the supplied passphrase
+ */
+const ECRYPTFS_KEY_DERIVATION_ALGO = "sha512";
+
+/**
  * Number of raw bytes used from signature hash
  */
 const ECRYPTFS_SIG_SIZE = 8;
 
 /**
- * Algorith used to generate keys from the supplied passphrase
+ * Default (and currently only supported) cipher used for encryption
  */
-const ECRYPTFS_KEY_DERIVATION_ALGO = "sha512";
+const ECRYPTFS_DEFAULT_CIPHER = "aes256";
+
+/**
+ * Size in bytes for the binary key required for the default cipher
+ */
+const ECRYPTFS_DEFAULT_KEY_BYTES = 16;
+
+/**
+ * Maximum key length of encrypted keys
+ */
+const ECRYPTFS_MAX_ENCRYPTED_KEY_BYTES = 512;
 
 const RFC2440_CIPHER_DES3_EDE = 0x02;
 const RFC2440_CIPHER_CAST_5 = 0x03;
@@ -204,5 +219,43 @@ class Manager
     public function decryptFilename(string $filename) : string
     {
         return $this->getTag70PacketFromFilename($filename)->decryptedFilename;
+    }
+    
+    
+    /**
+     * Decrypt a string, select the key matching the supplied key signature.
+     * 
+     * @param string $keySignature The (hex encoded) signature of a key
+     * @param int $cipherCode One of the RFC2440_CIPHER_* constants
+     * @param string $data Raw binary string to decrypt. Length must be a multiple of the blocksize of the cipher.
+     * @param string $iv Initialization vector
+     */
+    public function decrypt(string $keySignature, int $cipherCode, string $data, string $iv = null) : string
+    {
+        return $this->decryptWithKey(\hex2bin($this->getKey($keySignature)), $cipherCode, $data, $iv);
+    }
+    
+    
+    /**
+     * Decrypt a string
+     * 
+     * @param string $key The raw binary key
+     * @param int $cipherCode One of the RFC2440_CIPHER_* constants
+     * @param string $data Raw binary string to decrypt. Length must be a multiple of the blocksize of the cipher.
+     * @param string $iv Initialization vector
+     */
+    public function decryptWithKey(string $key, int $cipherCode, string $data, string $iv = null) : string
+    {
+        if ($cipherCode !== RFC2440_CIPHER_AES_256) {
+            throw new \DomainException('Unsupported cipher code 0x' . \dechex($cipherCode));
+        }
+        
+        $algo = "AES-256-ECB";
+        
+        if (false === ($decrypted = \openssl_decrypt($data, $algo, $key, \OPENSSL_RAW_DATA|\OPENSSL_NO_PADDING, $iv))) {
+            throw new \DomainException("Decryption failed with error: " . \openssl_error_string());
+        }
+        
+        return $decrypted;
     }
 }
