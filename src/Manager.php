@@ -15,6 +15,21 @@ namespace Iqb\Ecryptfs;
 const ECRYPTFS_PREFIX = 'ECRYPTFS_FNEK_ENCRYPTED.';
 
 /**
+ * Magic marker to detect if a file is a valid EcryptFS file
+ */
+const ECRYPTFS_MAGIC_MARKER = 0x3c81b7f5;
+
+/**
+ * Default block size
+ */
+const ECRYPTFS_DEFAULT_EXTENT_SIZE = 4096;
+
+/**
+ * Default file header size
+ */
+const ECRYPTFS_MINIMUM_HEADER_EXTENT_SIZE = 8192;
+    
+/**
  * Number of bytes to use from the supplied salt.
  */
 const ECRYPTFS_SALT_SIZE = 8;
@@ -250,7 +265,11 @@ class Manager
             throw new \DomainException('Unsupported cipher code 0x' . \dechex($cipherCode));
         }
         
-        $algo = "AES-256-ECB";
+        if ($iv) {
+            $algo = "AES-256-CBC";
+        } else {
+            $algo = "AES-256-ECB";
+        }
         
         if (false === ($decrypted = \openssl_decrypt($data, $algo, $key, \OPENSSL_RAW_DATA|\OPENSSL_NO_PADDING, $iv))) {
             throw new \DomainException("Decryption failed with error: " . \openssl_error_string());
