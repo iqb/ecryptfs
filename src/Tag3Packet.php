@@ -13,11 +13,38 @@ namespace Iqb\Ecryptfs;
  * Symmetric-Key Encrypted Session-Key Packet (Tag 3)
  *
  * @author Dennis Birkholz <ecryptfs@birkholz.org>
- * @see https://tools.ietf.org/html/rfc2440#section-5.3
+ * @link https://tools.ietf.org/html/rfc2440#section-5.3 OpenPGP Message Format: Symmetric-Key Encrypted Session-Key Packets (Tag 3)
+ * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1360 parse_tag_3_packet
+ * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n2184 write_tag_3_packet
  */
 class Tag3Packet
 {
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/ecryptfs_kernel.h?h=v4.11.3#n140
+     */
     const PACKET_TYPE = 0x8C;
+    
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1455
+     */
+    const PACKET_VERSION = 0x04;
+    
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1478
+     */
+    const S2L_IDENTIFIER = 0x03;
+    
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1485
+     */
+    const HASH_MD5_IDENTIFIER = 0x01;
+    
+    /**
+     * 65536 iterations
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n2392
+     */
+    const HASH_DEFAULT_ITERATIONS = 0x60;
+    
     
     /**
      * @var int
@@ -67,60 +94,85 @@ class Tag3Packet
     public $encryptedKey;
     
     
+    public function __construct(string $encryptedKey, int $cipherType = ECRYPTFS_DEFAULT_CIPHER)
+    {
+        $this->encryptedKey = $encryptedKey;
+        $this->cipherCode = $cipherType;
+    }
+    
+    
+    public function generate() : string
+    {
+        return
+              \chr(Tag3Packet::PACKET_TYPE)
+            . \chr(\strlen($this->encryptedKey) + ECRYPTFS_SALT_SIZE + 5)
+            . \chr(Tag3Packet::PACKET_VERSION)
+            . \chr($this->cipherCode)
+            . \chr(Tag3Packet::S2L_IDENTIFIER)
+            . \chr(Tag3Packet::HASH_MD5_IDENTIFIER)
+            . ($this->salt ?: \random_bytes(ECRYPTFS_SALT_SIZE))
+            . \chr(Tag3Packet::HASH_DEFAULT_ITERATIONS)
+            . $this->encryptedKey
+        ;
+    }
+    
+    
     /**
      * Try to parse a Tag3 packet from the supplied data string.
      * If the parsing was successfully, $pos will be incremented to point after the parsed data.
+     * 
+     * Only encryptedKey and cipherCode are used, all other fields are not used.
      */
-    public static function parse(Manager $manager, string $data, int &$pos = 0) : self
+    public static function parse(string $data, int &$pos = 0) : self
     {
         $cur = $pos;
-        $tag = new self();
         
         if (\ord($data[$cur]) !== self::PACKET_TYPE) {
-            throw new \DomainException("Expected packet type marker 0x" . \dechex(self::PACKET_TYPE) . " but found 0x" . \bin2hex($data[$cur]));
+            throw new ParseException("Expected packet type marker 0x" . \dechex(self::PACKET_TYPE) . " but found 0x" . \bin2hex($data[$cur]));
         }
         $cur++;
         
-        $tag->packetSize = Tag::parsePacketLength($data, $cur);
-        if ($tag->packetSize < ECRYPTFS_SALT_SIZE + 5) {
-            throw new \DomainException('Body size too small');
+        $packetSize = Tag::parsePacketLength($data, $cur);
+        if ($packetSize < ECRYPTFS_SALT_SIZE + 5) {
+            throw new ParseException('Body size too small');
         }
         
-        $tag->encryptedKeySize = $tag->packetSize - ECRYPTFS_SALT_SIZE - 5;
-        if ($tag->encryptedKeySize > ECRYPTFS_MAX_ENCRYPTED_KEY_BYTES) {
-            throw new \DomainException('Expected key size too large');
+        $encryptedKeySize = $packetSize - ECRYPTFS_SALT_SIZE - 5;
+        if ($encryptedKeySize > ECRYPTFS_MAX_ENCRYPTED_KEY_BYTES) {
+            throw new ParseException('Expected key size too large');
         }
         
-        $tag->version = \ord($data[$cur++]);
-        if ($tag->version !== 0x04) {
-            throw new \DomainException('Invalid version number 0x' . \dechex($tag->version));
+        $version = \ord($data[$cur++]);
+        if ($version !== self::PACKET_VERSION) {
+            throw new ParseException('Invalid version number 0x' . \dechex($version));
         }
         
-        $tag->cipherCode = \ord($data[$cur++]);
-        if (!isset(RFC2440_CIPHER_CODE_TO_STRING_MAPPING[$tag->cipherCode])) {
-            throw new \DomainException('Invalid cipher code 0x' . \dechex($tag->cipherCode));
+        $cipherCode = \ord($data[$cur++]);
+        if (!isset(RFC2440_CIPHER_CODE_TO_STRING_MAPPING[$cipherCode])) {
+            throw new ParseException('Invalid cipher code 0x' . \dechex($cipherCode));
         }
         
-        $tag->stringToKeySpecifier = \ord($data[$cur++]);
-        if ($tag->stringToKeySpecifier !== 0x03) {
-            throw new \DomainException('Only S2K ID 3 is currently supported');
+        $stringToKeySpecifier = \ord($data[$cur++]);
+        if ($stringToKeySpecifier !== self::S2L_IDENTIFIER) {
+            throw new ParseException('Only S2K ID 3 is currently supported');
         }
         
-        $tag->hashIdentifier = \ord($data[$cur++]);
-        if ($tag->hashIdentifier !== 0x01) {
-            throw new \DomainException('Only MD5 as hashing algorithm supported here');
+        $hashIdentifier = \ord($data[$cur++]);
+        if ($hashIdentifier !== self::HASH_MD5_IDENTIFIER) {
+            throw new ParseException('Only MD5 as hashing algorithm supported here');
         }
         
-        $tag->salt = \bin2hex(\substr($data, $cur, ECRYPTFS_SALT_SIZE));
+        $salt = \bin2hex(\substr($data, $cur, ECRYPTFS_SALT_SIZE));
         $cur += ECRYPTFS_SALT_SIZE;
         
         /* This conversion was taken straight from RFC2440 */
-	$tag->hashIterations = (16 + (\ord($data[$cur]) & 15)) << ((\ord($data[$cur]) >> 4) + 6);
+	$hashIterations = (16 + (\ord($data[$cur]) & 15)) << ((\ord($data[$cur]) >> 4) + 6);
         $cur++;
         
-        $tag->encryptedKey = \bin2hex(\substr($data, $cur, $tag->encryptedKeySize));
-        $cur += $tag->encryptedKeySize;
+        $encryptedKey = \bin2hex(\substr($data, $cur, $encryptedKeySize));
+        $cur += $encryptedKeySize;
         
+        $tag = new self($encryptedKey, $cipherCode);
         $pos = $cur;
         return $tag;
     }

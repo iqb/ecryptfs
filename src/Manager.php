@@ -69,11 +69,6 @@ const ECRYPTFS_KEY_DERIVATION_ALGO = "sha512";
 const ECRYPTFS_SIG_SIZE = 8;
 
 /**
- * Default (and currently only supported) cipher used for encryption
- */
-const ECRYPTFS_DEFAULT_CIPHER = "aes256";
-
-/**
  * Size in bytes for the binary key required for the default cipher
  */
 const ECRYPTFS_DEFAULT_KEY_BYTES = 16;
@@ -91,6 +86,11 @@ const RFC2440_CIPHER_AES_192 = 0x08;
 const RFC2440_CIPHER_AES_256 = 0x09;
 const RFC2440_CIPHER_TWOFISH = 0x0a;
 const RFC2440_CIPHER_CAST_6 = 0x0b;
+
+/**
+ * Default (and currently only supported) cipher used for encryption
+ */
+const ECRYPTFS_DEFAULT_CIPHER = RFC2440_CIPHER_AES_256;
     
 const RFC2440_CIPHER_CODE_TO_STRING_MAPPING = [
     RFC2440_CIPHER_DES3_EDE => "des3_ede",

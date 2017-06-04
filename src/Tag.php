@@ -26,7 +26,9 @@ abstract class Tag
     final public static function parsePacketLength(string $data, int &$pos = 0) : int
     {
         $packetSize = \ord($data[$pos]);
-        assert($packetSize < 224, "Error parsing packet length!");
+        if ($packetSize > 224) {
+            throw new ParseException("Error parsing packet length!");
+        }
         $pos++;
         
         // Read next byte from data
@@ -36,5 +38,28 @@ abstract class Tag
         }
         
         return $packetSize;
+    }
+    
+    /**
+     * Generate the binary string representing the supplied length
+     */
+    final public static function generatePacketLength(int $length) : string
+    {
+        if ($length < 0) {
+            throw new \InvalidArgumentException("Length must be an unsigned integer.");
+        }
+        
+        if ($length > (32*256 + 255)) {
+            throw new \InvalidArgumentException("Length too large.");
+        }
+        
+        if ($length < 192) {
+            return \chr($length);
+        }
+        
+        $low = $length % 256;
+        $high = \floor($length / 256);
+        
+        return \chr($high + 192) . \chr($low);
     }
 }

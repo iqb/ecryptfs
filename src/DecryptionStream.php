@@ -107,7 +107,7 @@ class DecryptionStream
         $this->extentsAtFront = $headerValues['extentsatfront'];
         $this->metadataSize = $this->extentsAtFront * $this->extentSize;
         
-        $tag3 = Tag3Packet::parse($manager, $header, $pos);
+        $tag3 = Tag3Packet::parse($header, $pos);
         
         $this->fileKey = $manager->decrypt($manager->getDefaultFEKEK(), $tag3->cipherCode, \hex2bin($tag3->encryptedKey));
         $this->rootIV = \md5($this->fileKey, true);
