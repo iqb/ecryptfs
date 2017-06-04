@@ -23,9 +23,14 @@ namespace Iqb\Ecryptfs;
  *    separator, and then the filename
  * 
  * @author Dennis Birkholz <ecryptfs@birkholz.org>
+ * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n892 ecryptfs_parse_tag_70_packet
+ * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n614 ecryptfs_write_tag_70_packet
  */
 final class Tag70Packet
 {
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/ecryptfs_kernel.h?h=v4.11.3#n146
+     */
     const PACKET_TYPE = 0x46;
     
     /**
