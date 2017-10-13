@@ -1,8 +1,13 @@
 <?php
 
+/*
+ * This file is part of the PHP EcryptFS library.
+ * (c) 2017 by Dennis Birkholz
+ * All rights reserved.
+ * For the license to use this library, see the provided LICENSE file.
+ */
 
 namespace Iqb\Ecryptfs;
-
 
 final class OpenSslCryptoEngine implements CryptoEngineInterface
 {
