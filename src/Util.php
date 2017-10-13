@@ -12,6 +12,48 @@ namespace Iqb\Ecryptfs;
 abstract class Util
 {
     /**
+     * The salt used for creating the file encryption key encryption key from the passphrase, unhex to use it.
+     *
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/include/ecryptfs.h#L75
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/utils/ecryptfs_add_passphrase.c#L83
+     */
+    const DEFAULT_SALT_HEX = "0011223344556677";
+
+    /**
+     * The salt used for creating the file name encryption key from the passphrase.
+     * Due to a programming error in the original ecryptfs user space library,
+     * the salt is not unhexed before use.
+     *
+     * As a result only the first half (99887766) is used literally.
+     *
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/include/ecryptfs.h#L76
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/utils/ecryptfs_add_passphrase.c#L108
+     */
+    const DEFAULT_SALT_FNEK_HEX = "9988776655443322";
+
+    /**
+     * Algorith used to generate keys from the supplied passphrase
+     *
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/libecryptfs/main.c#L220
+     */
+    const KEY_DERIVATION_ALGO = "sha512";
+
+    /**
+     * Number of iterations when deriving the keys from the passphrase
+     *
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/include/ecryptfs.h#L130
+     * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/libecryptfs/main.c#L223
+     */
+    const DEFAULT_NUM_HASH_ITERATIONS = 65536;
+
+    /**
+     * Filename prefix for encrypted file names
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/ecryptfs_kernel.h?h=v4.11.3#n171
+     */
+    const FNEK_ENCRYPTED_FILENAME_PREFIX = 'ECRYPTFS_FNEK_ENCRYPTED.';
+
+    /**
      * Derive a key from the supplied passphrase and salt
      *
      * @param string $passPhrase
@@ -21,10 +63,10 @@ abstract class Util
      */
     final public static function deriveKey(string $passPhrase, string $salt, bool $hexEncode = false) : string
     {
-        $key = \hash(ECRYPTFS_KEY_DERIVATION_ALGO, \substr($salt, 0, ECRYPTFS_SALT_SIZE) . $passPhrase, true);
+        $key = \hash(self::KEY_DERIVATION_ALGO, \substr($salt, 0, ECRYPTFS_SALT_SIZE) . $passPhrase, true);
 
-        for ($i=1; $i<ECRYPTFS_DEFAULT_NUM_HASH_ITERATIONS; $i++) {
-            $key = \hash(ECRYPTFS_KEY_DERIVATION_ALGO, $key, true);
+        for ($i=1; $i<self::DEFAULT_NUM_HASH_ITERATIONS; $i++) {
+            $key = \hash(self::KEY_DERIVATION_ALGO, $key, true);
         }
 
         return ($hexEncode ? \bin2hex($key) : $key);
@@ -39,7 +81,7 @@ abstract class Util
      */
     final public static function deriveFEKEK(string $passPhrase, bool $hexEncode = false) : string
     {
-        return self::deriveKey($passPhrase, \hex2bin(ECRYPTFS_DEFAULT_SALT_HEX), $hexEncode);
+        return self::deriveKey($passPhrase, \hex2bin(self::DEFAULT_SALT_HEX), $hexEncode);
     }
 
     /**
@@ -54,7 +96,7 @@ abstract class Util
         // Due to a programming error in the original Ecryptfs source code
         // the value of the ECRYPTFS_DEFAULT_SALT_FNEK_HEX is not hex decoded
         // but truncated and used without conversion.
-        return self::deriveKey($passPhrase, \substr(ECRYPTFS_DEFAULT_SALT_FNEK_HEX, 0, 8), $hexEncode);
+        return self::deriveKey($passPhrase, \substr(self::DEFAULT_SALT_FNEK_HEX, 0, 8), $hexEncode);
     }
 
     /**
@@ -65,7 +107,7 @@ abstract class Util
      */
     final public static function calculateSignature(string $key) : string
     {
-        return \bin2hex(\substr(\hash(ECRYPTFS_KEY_DERIVATION_ALGO, $key, true), 0, ECRYPTFS_SIG_SIZE));
+        return \bin2hex(\substr(\hash(self::KEY_DERIVATION_ALGO, $key, true), 0, ECRYPTFS_SIG_SIZE));
     }
 
 
@@ -130,7 +172,7 @@ abstract class Util
      */
     public static function isEncryptedFilename(string $filename) : bool
     {
-        return (\substr(\basename($filename), 0, \strlen(ECRYPTFS_PREFIX)) === ECRYPTFS_PREFIX);
+        return (\substr(\basename($filename), 0, \strlen(self::FNEK_ENCRYPTED_FILENAME_PREFIX )) === self::FNEK_ENCRYPTED_FILENAME_PREFIX);
     }
 
 
@@ -143,7 +185,7 @@ abstract class Util
     public static function encryptFilename(CryptoEngineInterface $cryptoEngine, string $filename, string $key, int $cipherCode = Tag70Packet::DEFAULT_CIPHER) : string
     {
         $tag = Tag70Packet::generate($cryptoEngine, $filename, $key, $cipherCode);
-        return ECRYPTFS_PREFIX . BaseConverter::encode($tag->dump());
+        return self::FNEK_ENCRYPTED_FILENAME_PREFIX  . BaseConverter::encode($tag->dump());
     }
 
 
@@ -157,7 +199,7 @@ abstract class Util
         }
 
         $dirname = \dirname($filename);
-        $decoded = BaseConverter::decode(\substr(\basename($filename), \strlen(ECRYPTFS_PREFIX)));
+        $decoded = BaseConverter::decode(\substr(\basename($filename), \strlen(self::FNEK_ENCRYPTED_FILENAME_PREFIX )));
         $tag = Tag70Packet::parse($decoded);
         $tag->decrypt($cryptoEngine, $key);
 

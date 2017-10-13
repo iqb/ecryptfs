@@ -13,7 +13,10 @@
     "autoload": {
         "psr-4": {
             "Iqb\\Ecryptfs\\": "src/"
-        }
+        },
+        "files": [
+            "src/constants.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

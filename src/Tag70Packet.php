@@ -220,11 +220,11 @@ final class Tag70Packet
         $cur += ECRYPTFS_SIG_SIZE;
 
         $tag->cipherCode = \ord($data[$cur]);
-        if (!\array_key_exists($tag->cipherCode, RFC2440_CIPHER_CODE_TO_STRING_MAPPING)) {
+        if (!\array_key_exists($tag->cipherCode, CryptoEngineInterface::CIPHER_BLOCK_SIZES)) {
             throw new \DomainException('Invalid cipher type 0x' . \dechex($tag->cipherCode));
         }
         if ($tag->cipherCode !== RFC2440_CIPHER_AES_256) {
-            throw new \DomainException("Unsupported cipher " . RFC2440_CIPHER_CODE_TO_STRING_MAPPING[$tag->cipherCode] . ", currently only AES 256 supported!");
+            throw new \DomainException("Unsupported cipher 0x" . \dechex($tag->cipherCode) . ", currently only AES 256 supported!");
         }
         $cur++;
 

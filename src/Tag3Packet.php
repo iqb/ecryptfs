@@ -45,6 +45,10 @@ class Tag3Packet
      */
     const HASH_DEFAULT_ITERATIONS = 0x60;
 
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/include/linux/ecryptfs.h#n32
+     */
+    const MAX_ENCRYPTED_KEY_BYTES = 512;
 
     /**
      * @var int
@@ -138,7 +142,7 @@ class Tag3Packet
         }
 
         $encryptedKeySize = $packetSize - ECRYPTFS_SALT_SIZE - 5;
-        if ($encryptedKeySize > ECRYPTFS_MAX_ENCRYPTED_KEY_BYTES) {
+        if ($encryptedKeySize > self::MAX_ENCRYPTED_KEY_BYTES) {
             throw new ParseException('Expected key size too large');
         }
 
@@ -148,7 +152,7 @@ class Tag3Packet
         }
 
         $cipherCode = \ord($data[$cur++]);
-        if (!\array_key_exists($cipherCode, RFC2440_CIPHER_CODE_TO_STRING_MAPPING)) {
+        if (!\array_key_exists($cipherCode, CryptoEngineInterface::CIPHER_KEY_SIZES)) {
             throw new ParseException('Invalid cipher code 0x' . \dechex($cipherCode));
         }
 
