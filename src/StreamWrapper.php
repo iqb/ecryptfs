@@ -161,4 +161,13 @@ class StreamWrapper
     {
         return ($this->position >= $this->maxPosition);
     }
+
+    final public function stream_stat() : array
+    {
+        return [
+            'size' => $this->header->size,
+            'blksize' => $this->header->extentSize,
+            'blocks' => \ceil($this->header->size / $this->header->extentSize),
+        ];
+    }
 }

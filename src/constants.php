@@ -74,3 +74,5 @@ const ECRYPTFS_SIG_SIZE = 8;
  * @link http://bazaar.launchpad.net/~ecryptfs/ecryptfs/trunk/view/head:/src/libecryptfs/main.c#L214
  */
 const ECRYPTFS_SALT_SIZE = 8;
+
+\stream_wrapper_register(StreamWrapper::STREAM_NAME, StreamWrapper::class);
