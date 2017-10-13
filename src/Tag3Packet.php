@@ -162,14 +162,14 @@ class Tag3Packet
             throw new ParseException('Only MD5 as hashing algorithm supported here');
         }
 
-        $salt = \bin2hex(\substr($data, $cur, ECRYPTFS_SALT_SIZE));
+        $salt = \substr($data, $cur, ECRYPTFS_SALT_SIZE);
         $cur += ECRYPTFS_SALT_SIZE;
 
         /* This conversion was taken straight from RFC2440 */
 	    $hashIterations = (16 + (\ord($data[$cur]) & 15)) << ((\ord($data[$cur]) >> 4) + 6);
         $cur++;
 
-        $encryptedKey = \bin2hex(\substr($data, $cur, $encryptedKeySize));
+        $encryptedKey = \substr($data, $cur, $encryptedKeySize);
         $cur += $encryptedKeySize;
 
         $tag = new self($encryptedKey, $cipherCode);
