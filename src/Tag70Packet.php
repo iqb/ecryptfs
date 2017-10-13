@@ -98,6 +98,14 @@ final class Tag70Packet
 
 
     /**
+     * Prevent creation without proper initialization from factory methods
+     */
+    private function __construct()
+    {
+    }
+
+
+    /**
      * Generate the binary representation of this packet
      */
     final public function dump() : string
