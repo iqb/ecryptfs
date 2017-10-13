@@ -117,10 +117,10 @@ final class Tag70Packet
      *
      * @return bool Whether the data could be decrypted with the supplied key
      */
-    final public function decrypt(CryptoEngineInterface $cryptoEngine, string $key) : bool
+    final public function decrypt(CryptoEngineInterface $cryptoEngine, string $key)
     {
-        if ($this->signature !== Util::calculateSignature($key)) {
-            return false;
+        if ($this->signature !== ($keySignature = Util::calculateSignature($key))) {
+            throw new \InvalidArgumentException("Signature mismatch: require {$this->signature}, got $keySignature");
         }
 
         $realKey = \substr($key, 0, $cryptoEngine::CIPHER_KEY_SIZES[$this->cipherCode]);
@@ -133,8 +133,6 @@ final class Tag70Packet
         }
 
         list($this->padding, $this->decryptedFilename) = \explode("\0", $decrypted, 2);
-
-        return true;
     }
 
 
