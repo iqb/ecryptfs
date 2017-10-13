@@ -159,9 +159,7 @@ abstract class Util
         $dirname = \dirname($filename);
         $decoded = BaseConverter::decode(\substr(\basename($filename), \strlen(ECRYPTFS_PREFIX)));
         $tag = Tag70Packet::parse($decoded);
-        if (!$tag->decrypt($cryptoEngine, $key)) {
-            throw new \RuntimeException("Signature mismatch!");
-        }
+        $tag->decrypt($cryptoEngine, $key);
 
         return ($dirname && $dirname != '.' ? $dirname . '/' : '') . $tag->decryptedFilename;
     }
