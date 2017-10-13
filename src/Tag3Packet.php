@@ -173,6 +173,10 @@ class Tag3Packet
         $cur += $encryptedKeySize;
 
         $tag = new self($encryptedKey, $cipherCode);
+        $tag->salt = $salt;
+        $tag->hashIdentifier = $hashIdentifier;
+        $tag->hashIterations = $hashIterations;
+
         $pos = $cur;
         return $tag;
     }
