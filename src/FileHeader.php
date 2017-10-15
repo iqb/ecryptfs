@@ -122,12 +122,31 @@ class FileHeader
         $header->cipherCode = $tag3->cipherCode;
         $header->encryptedFileKey = $tag3->encryptedKey;
 
+        if (!\in_array(\strlen($header->encryptedFileKey), CryptoEngineInterface::CIPHER_KEY_SIZES[$header->cipherCode])) {
+            throw new \RuntimeException("Invalid key size detected, file header may be corrupt!");
+        }
+
         return $header;
     }
 
+
+    /**
+     * Decrypt the file encryption key (FEK) using the file encryption key encryption key (FEKEK).
+     * The cipher method for FEK encryption and for file contents encryption is encoded in the header.
+     * The cipher key size for FEK encryption is the same as for file contents encryption so
+     *  the same number of bytes from the FEKEK is uses as bytes for the FEK exist.
+     *
+     * @param CryptoEngineInterface $cryptoEngine
+     * @param string $fekek
+     */
     public function decryptFileKey(CryptoEngineInterface $cryptoEngine, string $fekek)
     {
-        $realFekek = \substr($fekek, 0, $cryptoEngine::CIPHER_KEY_SIZES[$this->cipherCode]);
+        $cipherKeySize = \strlen($this->encryptedFileKey);
+        if (\strlen($fekek) < $cipherKeySize) {
+            throw new \InvalidArgumentException("Decryption requires %u key bytes, supplied FEKEK has only %u bytes!", $cipherKeySize, \strlen($fekek));
+        }
+        $realFekek = \substr($fekek, 0, $cipherKeySize);
+
         $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$this->cipherCode];
         $iv = \str_repeat("\0", $blockSize);
 
