@@ -113,7 +113,7 @@ class IntegrationTest extends TestCase
         $retval = 0;
         $output = [];
 
-        echo "Executing: '$fullCmd'\n";
+        //echo "Executing: '$fullCmd'\n";
 
         \exec($fullCmd, $output, $retval);
         if ($retval !== 0) {
