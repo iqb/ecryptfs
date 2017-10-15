@@ -59,6 +59,13 @@ final class Tag70Packet
     const DEFAULT_CIPHER = RFC2440_CIPHER_AES_256;
 
     /**
+     * "A reasonable substitute for NULL"
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/ecryptfs_kernel.h?h=v4.11.3#n162
+     */
+    const NON_NULL = 0x42;
+
+    /**
      * @var int
      */
     public $packetSize;
@@ -146,7 +153,7 @@ final class Tag70Packet
 
         $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$this->cipherCode];
         $iv = \str_repeat("\0", $blockSize);
-        $padding = self::createRandomPrefix($fnek, self::DIGEST_SIZE);
+        $padding = self::createRandomPrefix($fnek, 8);
 
         $correctKeySize = false;
         $possibleCipherKeySizes = ($this->cipherKeySize ? [$this->cipherKeySize] : $cryptoEngine::CIPHER_KEY_SIZES[$this->cipherCode]);
@@ -160,7 +167,7 @@ final class Tag70Packet
 
                 // "Random" bytes do not match expected bytes, key or key size is wrong
                 if ($blockNum === 0) {
-                    if (\substr($decrypted, 0, self::DIGEST_SIZE) === $padding) {
+                    if (\substr($decrypted, 0, 8) === $padding) {
                         $this->cipherKeySize = $cipherKeySize;
                         $correctKeySize = true;
                     } else {
@@ -175,7 +182,7 @@ final class Tag70Packet
         }
 
         if (!$correctKeySize) {
-            throw new \RuntimeException("Unable to decrypt filename, filename encryption key (FNEK) invalid or invalid key length.");
+            throw new \RuntimeException(\sprintf("Unable to decrypt filename, filename encryption key (FNEK) invalid or invalid key length for cipher 0x%x, tested key sizes: (%s)", $this->cipherCode, \implode(', ', \array_map(function($bytes) { return $bytes*8; }, $possibleCipherKeySizes))));
         }
 
         list($this->padding, $this->decryptedFilename) = \explode("\0", $decrypted, 2);
@@ -262,7 +269,14 @@ final class Tag70Packet
             $prefix .= $hash;
         }
 
-        return \substr($prefix, 0, $requiredBytes);
+        // Use only required bytes
+        $prefix = \substr($prefix, 0, $requiredBytes);
+
+        // Replace \0 because we separate prefix and actual file name with \0
+        // @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n786
+        $prefix = \str_replace("\0", \chr(self::NON_NULL), $prefix);
+
+        return $prefix;
     }
 
 
