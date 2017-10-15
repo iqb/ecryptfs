@@ -29,7 +29,7 @@ final class OpenSslCryptoEngine implements CryptoEngineInterface
     final public function encrypt(string $data, int $cipherCode, string $key, string $iv): string
     {
         \assert(isset(self::CIPHER_MAPPING[$cipherCode]), "Cipher 0x" . \dechex($cipherCode) . " not implemented!");
-        \assert(\strlen($key) === self::CIPHER_KEY_SIZES[$cipherCode], "Invalid key size specified.");
+        \assert(\in_array(\strlen($key), CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode], true), "Invalid key size specified.");
 
         $cipher = self::CIPHER_MAPPING[$cipherCode];
 
@@ -52,7 +52,7 @@ final class OpenSslCryptoEngine implements CryptoEngineInterface
     final public function decrypt(string $data, int $cipherCode, string $key, string $iv): string
     {
         \assert(isset(self::CIPHER_MAPPING[$cipherCode]), "Cipher 0x" . \dechex($cipherCode) . " not implemented!");
-        \assert(\strlen($key) === self::CIPHER_KEY_SIZES[$cipherCode], "Invalid key size specified.");
+        \assert(\in_array(\strlen($key), CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode], true), "Invalid key size specified.");
 
         $cipher = self::CIPHER_MAPPING[$cipherCode];
 
