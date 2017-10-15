@@ -33,20 +33,20 @@ interface CryptoEngineInterface
      */
     const CIPHER_KEY_SIZES = [
         // Triple-DES (DES-EDE, as per spec - 168 bit key derived from 192)
-        RFC2440_CIPHER_DES3_EDE => 24,
+        RFC2440_CIPHER_DES3_EDE => [ 24 ],
         // CAST5 (128 bit key, as per RFC 2144)
-        RFC2440_CIPHER_CAST_5   => 16,
+        RFC2440_CIPHER_CAST_5   => [ 16 ],
         // Blowfish (128 bit key, 16 rounds)
-        RFC2440_CIPHER_BLOWFISH => 16,
+        RFC2440_CIPHER_BLOWFISH => [ 16 ],
         // AES with 128-bit key
-        RFC2440_CIPHER_AES_128  => 16,
+        RFC2440_CIPHER_AES_128  => [ 16 ],
         // AES with 192-bit key
-        RFC2440_CIPHER_AES_192  => 24,
+        RFC2440_CIPHER_AES_192  => [ 24 ],
         // AES with 256-bit key
-        RFC2440_CIPHER_AES_256  => 32,
+        RFC2440_CIPHER_AES_256  => [ 32 ],
         // Twofish with 256-bit key
-        RFC2440_CIPHER_TWOFISH  => 16,
-        RFC2440_CIPHER_CAST_6   => 16,
+        RFC2440_CIPHER_TWOFISH  => [ 32, 24, 16 ],
+        RFC2440_CIPHER_CAST_6   => [ 32, 28, 24, 20, 16 ],
     ];
 
     /**
