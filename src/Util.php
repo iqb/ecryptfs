@@ -179,12 +179,18 @@ abstract class Util
     /**
      * Encrypt the supplied filename
      *
+     * @param CryptoEngineInterface $cryptoEngine
      * @param string $filename
+     * @param string $fnek
+     * @param int $cipherCode
+     * @param int|null $cipherKeySize
      * @return string
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/crypto.c?h=v4.11.3#n1498
      */
-    public static function encryptFilename(CryptoEngineInterface $cryptoEngine, string $filename, string $key, int $cipherCode = Tag70Packet::DEFAULT_CIPHER) : string
+    public static function encryptFilename(CryptoEngineInterface $cryptoEngine, string $filename, string $fnek, int $cipherCode = Tag70Packet::DEFAULT_CIPHER, int $cipherKeySize = null) : string
     {
-        $tag = Tag70Packet::generate($cryptoEngine, $filename, $key, $cipherCode);
+        $tag = Tag70Packet::generate($cryptoEngine, $filename, $fnek, $cipherCode, $cipherKeySize);
         return self::FNEK_ENCRYPTED_FILENAME_PREFIX  . BaseConverter::encode($tag->dump());
     }
 
@@ -204,5 +210,29 @@ abstract class Util
         $tag->decrypt($cryptoEngine, $key);
 
         return ($dirname && $dirname != '.' ? $dirname . '/' : '') . $tag->decryptedFilename;
+    }
+
+
+    /**
+     * Find the largest possible cipher key size for the given cipher and key length
+     *
+     * @param int $cipherCode
+     * @param int $keyLength
+     * @return mixed
+     */
+    public static function findCipherKeySize(int $cipherCode, int $keyLength)
+    {
+        foreach (CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode] as $possibleCipherKeySize) {
+            if ($possibleCipherKeySize <= $keyLength) {
+                $cipherKeySize = $possibleCipherKeySize;
+                break;
+            }
+        }
+
+        if (!isset($cipherKeySize)) {
+            throw new \RuntimeException("Supplied key has only %u bytes, not enough for cipher 0x%x", $keyLength, $cipherCode);
+        }
+
+        return $cipherKeySize;
     }
 }

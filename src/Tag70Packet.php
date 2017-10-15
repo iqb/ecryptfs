@@ -82,6 +82,13 @@ final class Tag70Packet
     public $cipherCode;
 
     /**
+     * Key size in bytes
+     *
+     * @var int
+     */
+    public $cipherKeySize;
+
+    /**
      * @var string
      */
     public $encryptedFilename;
@@ -123,24 +130,56 @@ final class Tag70Packet
     /**
      * Decrypt the encrypted payload and extract padding and filename from it.
      *
-     * @return bool Whether the data could be decrypted with the supplied key
+     * A TAG70 packet does not contain the
+     *
+     * @param CryptoEngineInterface $cryptoEngine
+     * @param string $fnek File name encryption key
+     * @return string The decrypted filename
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1051
      */
-    final public function decrypt(CryptoEngineInterface $cryptoEngine, string $key)
+    final public function decrypt(CryptoEngineInterface $cryptoEngine, string $fnek) : string
     {
-        if ($this->signature !== ($keySignature = Util::calculateSignature($key))) {
+        if ($this->signature !== ($keySignature = Util::calculateSignature($fnek))) {
             throw new \InvalidArgumentException("Signature mismatch: require {$this->signature}, got $keySignature");
         }
 
-        $realKey = \substr($key, 0, $cryptoEngine::CIPHER_KEY_SIZES[$this->cipherCode]);
         $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$this->cipherCode];
-
-        $decrypted = '';
         $iv = \str_repeat("\0", $blockSize);
-        foreach (\str_split($this->encryptedFilename, $blockSize) as $block) {
-            $decrypted .= $cryptoEngine->decrypt($block, $this->cipherCode, $realKey, $iv);
+        $padding = self::createRandomPrefix($fnek, self::DIGEST_SIZE);
+
+        $correctKeySize = false;
+        $possibleCipherKeySizes = ($this->cipherKeySize ? [$this->cipherKeySize] : $cryptoEngine::CIPHER_KEY_SIZES[$this->cipherCode]);
+
+        foreach ($possibleCipherKeySizes as $cipherKeySize) {
+            $realKey = \substr($fnek, 0, $cipherKeySize);
+
+            $decrypted = '';
+            foreach (\str_split($this->encryptedFilename, $blockSize) as $blockNum => $block) {
+                $decrypted .= $cryptoEngine->decrypt($block, $this->cipherCode, $realKey, $iv);
+
+                // "Random" bytes do not match expected bytes, key or key size is wrong
+                if ($blockNum === 0) {
+                    if (\substr($decrypted, 0, self::DIGEST_SIZE) === $padding) {
+                        $this->cipherKeySize = $cipherKeySize;
+                        $correctKeySize = true;
+                    } else {
+                        continue 2;
+                    }
+                }
+            }
+
+            if ($correctKeySize) {
+                break;
+            }
+        }
+
+        if (!$correctKeySize) {
+            throw new \RuntimeException("Unable to decrypt filename, filename encryption key (FNEK) invalid or invalid key length.");
         }
 
         list($this->padding, $this->decryptedFilename) = \explode("\0", $decrypted, 2);
+        return $this->decryptedFilename;
     }
 
 
@@ -149,15 +188,29 @@ final class Tag70Packet
      *
      * @param CryptoEngineInterface $cryptoEngine
      * @param string $plainText
-     * @param string $key
+     * @param string $fnek File name encryption key
      * @param int $cipherCode
      * @return Tag70Packet
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n614
      */
-    public static function generate(CryptoEngineInterface $cryptoEngine, string $plainText, string $key, int $cipherCode = self::DEFAULT_CIPHER) : self
+    public static function generate(CryptoEngineInterface $cryptoEngine, string $plainText, string $fnek, int $cipherCode = self::DEFAULT_CIPHER, int $cipherKeySize = null) : self
     {
+        if ($cipherKeySize === null) {
+            $cipherKeySize = Util::findCipherKeySize($cipherCode, \strlen($fnek));
+        }
+
+        elseif (\strlen($fnek) < $cipherKeySize) {
+            throw new \InvalidArgumentException(\şprintf("Supplied key has only %u bytes but %u bytes required for encryption.", \strlen($$fnek), $cipherKeySize));
+        }
+
+        elseif (!\in_array($cipherKeySize, CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode])) {
+            throw new \InvalidArgumentException(\şprintf("Requested key size %u bytes is unsupported for cipher 0x%x.", $cipherKeySize, $cipherCode));
+        }
+
         $tag = new self();
         $tag->cipherCode = $cipherCode;
-        $tag->signature = Util::calculateSignature($key);
+        $tag->signature = Util::calculateSignature($fnek);
         $tag->decryptedFilename = $plainText;
 
         $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$cipherCode];
@@ -172,19 +225,11 @@ final class Tag70Packet
         }
         $tag->packetSize = ECRYPTFS_SIG_SIZE + 1 + $tag->blockAlignedFilenameSize;
 
-        // The "random" prefix is not that random, it is created from the MD5 sum of the FNEK
-        // After the MD5 hash is completely used as a prefix, the hash is again hashed and used as a prefix and so on
-        $prefix = '';
-        $hash = $key;
-        for ($i=0; $i<\ceil($randomPrefixSize / self::DIGEST_SIZE); $i++) {
-            $hash = \hash(self::DIGEST, $hash, true);
-            $prefix .= $hash;
-        }
         // The actual padded filename contains the prefix separated by \0 from the plain text filename
-        $tag->padding = \substr($prefix, 0, $randomPrefixSize);
+        $tag->padding = self::createRandomPrefix($fnek, $randomPrefixSize);
         $paddedFilename = $tag->padding . "\0" . $tag->decryptedFilename;
 
-        $realKey = \substr($key, 0, $cryptoEngine::CIPHER_KEY_SIZES[$tag->cipherCode]);
+        $realKey = \substr($fnek, 0, $cipherKeySize);
         $tag->encryptedFilename = '';
         $iv = \str_repeat("\0", $blockSize);
         foreach (\str_split($paddedFilename, $blockSize) as $block) {
@@ -196,6 +241,32 @@ final class Tag70Packet
 
 
     /**
+     * Generate the "random" prefix prepended to the filename before encryption.
+     *
+     * The "random" prefix is not that random, it is created from the MD5 sum of the FNEK
+     * The prefix is a substring of md5($fnek).md5(md5($fnek)).
+     *
+     * @param string $fnek
+     * @param int $requiredBytes
+     * @return string
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n786
+     */
+    private static function createRandomPrefix(string $fnek, int $requiredBytes) : string
+    {
+        $prefix = '';
+        $hash = $fnek;
+
+        for ($i=0; $i<\ceil($requiredBytes / self::DIGEST_SIZE); $i++) {
+            $hash = \hash(self::DIGEST, $hash, true);
+            $prefix .= $hash;
+        }
+
+        return \substr($prefix, 0, $requiredBytes);
+    }
+
+
+    /**
      * Try to parse a Tag70 packet from the supplied data string.
      * Call decrypt() afterwards to actually decrypt the filename
      * If the parsing was successfully, $pos will be incremented to point after the parsed data.
@@ -203,6 +274,8 @@ final class Tag70Packet
      * @param string $data
      * @param int $pos
      * @return Tag70Packet
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n892
      */
     public static function parse(string $data, int &$pos = 0) : self
     {
@@ -222,9 +295,6 @@ final class Tag70Packet
         $tag->cipherCode = \ord($data[$cur]);
         if (!\array_key_exists($tag->cipherCode, CryptoEngineInterface::CIPHER_BLOCK_SIZES)) {
             throw new \DomainException('Invalid cipher type 0x' . \dechex($tag->cipherCode));
-        }
-        if ($tag->cipherCode !== RFC2440_CIPHER_AES_256) {
-            throw new \DomainException("Unsupported cipher 0x" . \dechex($tag->cipherCode) . ", currently only AES 256 supported!");
         }
         $cur++;
 
