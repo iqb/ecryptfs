@@ -105,6 +105,9 @@ class Tag3Packet
     }
 
 
+    /**
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n2184
+     */
     public function generate() : string
     {
         return
@@ -126,6 +129,8 @@ class Tag3Packet
      * If the parsing was successfully, $pos will be incremented to point after the parsed data.
      *
      * Only encryptedKey and cipherCode are used, all other fields are not used.
+     *
+     * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1360
      */
     public static function parse(string $data, int &$pos = 0) : self
     {
