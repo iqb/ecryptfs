@@ -123,7 +123,7 @@ class FileHeader
         $header->encryptedFileKey = $tag3->encryptedKey;
 
         if (!\in_array(\strlen($header->encryptedFileKey), CryptoEngineInterface::CIPHER_KEY_SIZES[$header->cipherCode])) {
-            throw new \RuntimeException("Invalid key size detected, file header may be corrupt!");
+            throw new \RuntimeException(\sprintf("Invalid key size (%u bit) for cipher 0x%x detected, file header may be corrupt!", \strlen($header->encryptedFileKey)*8, $header->cipherCode));
         }
 
         return $header;
