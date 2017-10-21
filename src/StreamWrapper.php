@@ -11,7 +11,26 @@ namespace Iqb\Ecryptfs;
 
 class StreamWrapper
 {
+    /**
+     * Name of the registered stream and name of the array key in the context options
+     */
     const STREAM_NAME = 'ecryptfs';
+
+    /**
+     * Name of the passphrase context option
+     */
+    const CONTEXT_PASSPHRASE = 'passphrase';
+
+    /**
+     * Name of the engine context option
+     */
+    const CONTEXT_ENGINE = 'engine';
+
+    /**
+     * Name of the stream context option
+     */
+    const CONTEXT_STREAM = 'stream';
+
 
     /**
      * @var resource
@@ -66,20 +85,53 @@ class StreamWrapper
 
     public function stream_open(string $path, string $mode, int $options, string &$opened_path = null) : bool
     {
-        $prefix = self::STREAM_NAME . '://';
+        $context = \stream_context_get_options($this->context);
+        $myContext = (isset($context[self::STREAM_NAME]) && \is_array($context[self::STREAM_NAME]) ? $context[self::STREAM_NAME] : []);
 
-        if (\substr($path, 0, \strlen($prefix)) !== $prefix) {
+        // Read passphrase from context and derive file encryption key encryption key (FEKEK)
+        if (\array_key_exists(self::CONTEXT_PASSPHRASE, $myContext)) {
+            $this->fekek = Util::deriveFEKEK($myContext[self::CONTEXT_PASSPHRASE]);
+        } else {
             if ($options & \STREAM_REPORT_ERRORS) {
-                \trigger_error("Invalid path!", \E_USER_WARNING);
+                throw new \InvalidArgumentException("Passphrase required!");
             }
             return false;
         }
 
-        $realPath = \substr($path, \strlen($prefix));
-        if ($options & \STREAM_REPORT_ERRORS) {
-            $this->encrypted = \fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+        // Get crypto engine from context or use OpenSSL by default
+        if (\array_key_exists(self::CONTEXT_ENGINE, $myContext)) {
+            $this->cryptoEngine = $myContext[self::CONTEXT_ENGINE];
+            if (!$this->cryptoEngine instanceof CryptoEngineInterface) {
+                if ($options & \STREAM_REPORT_ERRORS) {
+                    new \InvalidArgumentException("Supplied crypto engine must implement " . CryptoEngineInterface::class);
+                }
+                return false;
+            }
         } else {
-            $this->encrypted = @\fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+            $this->cryptoEngine = new OpenSslCryptoEngine();
+        }
+
+        // Use stream from context or open file
+        if (\array_key_exists(self::CONTEXT_STREAM, $myContext)) {
+            $this->encrypted = $myContext[self::CONTEXT_STREAM];
+        }
+
+        else {
+            $prefix = self::STREAM_NAME . '://';
+
+            if (\substr($path, 0, \strlen($prefix)) !== $prefix) {
+                if ($options & \STREAM_REPORT_ERRORS) {
+                    \trigger_error("Invalid path!", \E_USER_WARNING);
+                }
+                return false;
+            }
+
+            $realPath = \substr($path, \strlen($prefix));
+            if ($options & \STREAM_REPORT_ERRORS) {
+                $this->encrypted = \fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+            } else {
+                $this->encrypted = @\fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+            }
         }
 
         if (!\is_resource($this->encrypted)) {
@@ -89,29 +141,6 @@ class StreamWrapper
             return false;
         }
 
-        if (!\is_resource($this->context)) {
-            if ($options & \STREAM_REPORT_ERRORS) {
-                \trigger_error("No passphrase, file encryption key encrypted key or file encryption key provided!", \E_USER_WARNING);
-            }
-            return false;
-        }
-
-        $context = \stream_context_get_options($this->context);
-        if (isset($context[self::STREAM_NAME]['passphrase'])) {
-            $this->fekek = Util::deriveFEKEK($context[self::STREAM_NAME]['passphrase']);
-        } else {
-            throw new \InvalidArgumentException("Passphrase required!");
-        }
-
-        if (isset($context[self::STREAM_NAME]['engine'])) {
-            $this->cryptoEngine = $context[self::STREAM_NAME]['engine'];
-            if (!$this->cryptoEngine instanceof CryptoEngineInterface) {
-                new \InvalidArgumentException("Supplied crypto engine must implement " . CryptoEngineInterface::class);
-            }
-        } else {
-            $this->cryptoEngine = new OpenSslCryptoEngine();
-        }
-
         $this->header = FileHeader::parse($this->encrypted);
         $this->header->decryptFileKey($this->cryptoEngine, $this->fekek);
         $this->position = $this->header->metadataSize;
@@ -119,6 +148,7 @@ class StreamWrapper
 
         return true;
     }
+
 
     /**
      * @param int $length
@@ -157,10 +187,12 @@ class StreamWrapper
         return $return;
     }
 
+
     public function stream_eof() : bool
     {
         return ($this->position >= $this->maxPosition);
     }
+
 
     final public function stream_stat() : array
     {
