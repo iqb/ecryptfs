@@ -82,8 +82,15 @@ class StreamWrapper
      */
     private $position;
 
+    /**
+     * File encryption key encryption key (FEKEK) as binary string
+     *
+     * @var string
+     */
+    private $fekek;
 
-    public function stream_open(string $path, string $mode, int $options, string &$opened_path = null) : bool
+
+    public function stream_open(string $path, string $mode, int $options) : bool
     {
         $context = \stream_context_get_options($this->context);
         $myContext = (isset($context[self::STREAM_NAME]) && \is_array($context[self::STREAM_NAME]) ? $context[self::STREAM_NAME] : []);
@@ -128,9 +135,9 @@ class StreamWrapper
 
             $realPath = \substr($path, \strlen($prefix));
             if ($options & \STREAM_REPORT_ERRORS) {
-                $this->encrypted = \fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+                $this->encrypted = \fopen($realPath, $mode, ($options & \STREAM_USE_PATH !== 0), $this->context);
             } else {
-                $this->encrypted = @\fopen($realPath, $mode, ($options & \STREAM_USE_PATH), $this->context);
+                $this->encrypted = @\fopen($realPath, $mode, ($options & \STREAM_USE_PATH !== 0), $this->context);
             }
         }
 

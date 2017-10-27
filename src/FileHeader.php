@@ -143,7 +143,7 @@ class FileHeader
     {
         $cipherKeySize = \strlen($this->encryptedFileKey);
         if (\strlen($fekek) < $cipherKeySize) {
-            throw new \InvalidArgumentException("Decryption requires %u key bytes, supplied FEKEK has only %u bytes!", $cipherKeySize, \strlen($fekek));
+            throw new \InvalidArgumentException(\sprintf("Decryption requires %u key bytes, supplied FEKEK has only %u bytes!", $cipherKeySize, \strlen($fekek)));
         }
         $realFekek = \substr($fekek, 0, $cipherKeySize);
 
