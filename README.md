@@ -1,9 +1,10 @@
+Userland EcryptFS library written in PHP
+========================================
+
 [![Build Status](https://travis-ci.org/iqb/ecryptfs.png?branch=master)](https://travis-ci.org/iqb/ecryptfs)
 [![Scrutinizer Score](https://scrutinizer-ci.com/g/iqb/ecryptfs/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/iqb/ecryptfs)
 [![Code Coverage](https://scrutinizer-ci.com/g/iqb/ecryptfs/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/iqb/ecryptfs)
-
-Userland EcryptFS library written in PHP
-========================================
+[![Software License](https://img.shields.io/badge/License-LGPL%20V3-brightgreen.svg?style=flat-square)](LICENSE)
 
 [EcryptFS](http://ecryptfs.org/) is a Linux file system that allows you encrypt your files (and filenames).
 It is part of the Linux Kernel and is used e.g. by Ubuntu to encrypt users home directories.
