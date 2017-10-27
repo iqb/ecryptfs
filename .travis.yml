@@ -1,0 +1,9 @@
+language: php
+php:
+  - '7.0'
+before_script:
+  - sudo apt-get update
+  - sudo apt-get install ecryptfs-utils
+  - sudo modprobe ecryptfs
+install:
+  - composer install
