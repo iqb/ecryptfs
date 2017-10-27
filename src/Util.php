@@ -118,12 +118,13 @@ abstract class Util
      * @param string $data
      * @param int $pos
      * @return int
+     * @throws ParseException
      */
     final public static function parseTagPacketLength(string $data, int &$pos = 0) : int
     {
         $packetSize = \ord($data[$pos]);
         if ($packetSize > 224) {
-            throw new \InvalidArgumentException("Error parsing packet length!");
+            throw new ParseException("Error parsing packet length!");
         }
         $pos++;
 
