@@ -92,7 +92,7 @@ class Tag3Packet
     public $hashIterations = 0;
 
     /**
-     * Encrypted key as hex string
+     * Encrypted key as binary string
      * @var string
      */
     public $encryptedKey;
