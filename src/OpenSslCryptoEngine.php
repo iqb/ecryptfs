@@ -9,6 +9,9 @@
 
 namespace Iqb\Ecryptfs;
 
+/**
+ * Provides encryption and decryption primitives using PHP's OpenSSL extension.
+ */
 final class OpenSslCryptoEngine implements CryptoEngineInterface
 {
     const CIPHER_MAPPING = [
