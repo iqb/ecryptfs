@@ -1,9 +1,20 @@
 <?php
 
+/*
+ * This file is part of the PHP EcryptFS library.
+ * (c) 2017 by Dennis Birkholz
+ * All rights reserved.
+ * For the license to use this library, see the provided LICENSE file.
+ */
 
 namespace Iqb\Ecryptfs;
 
-
+/**
+ * The FileHeader class represents the metadata stored at the beginning of each encrypted file.
+ * It marks the file as a valid EcryptFS encrypted file (via the Magic Marker) and
+ * contains information about the real file size of the encrypted file, the key to decrypt the file,
+ * the method used for encrypting the file, etc.
+ */
 class FileHeader
 {
     /**
