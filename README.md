@@ -89,7 +89,7 @@ The File Encryption Key Encryption Key (FEKEK) is derived from the supplied pass
 
 Everything after the `ecryptfs://` and the stream context is passed to `fopen()` so you can access encrypted files with all available stream wrappers in PHP.
 
-If you don't have a file put an open resource (e.g. a file opened via HTTP by Guzzle), you can pass the resource via the stream context:
+If you don't have a file but an open resource (e.g. a file opened via HTTP by Guzzle), you can pass the resource via the stream context:
 
 ```php
 <?php
@@ -121,15 +121,18 @@ Limitations
 - Encrypting files is not possible yet
 - Currently only AES (with 128 and 256 bits) are fully supported
 - AES with 192 bits only works for file names (due to limitations in the original EcryptFS kernel implementation)
-- If the randomly generated file encryption key (FEK) available for decryption with multiple FEKEKs (as is theoretically possible in the EcryptFS file header but not used AFAIK), only the first packet is tried. If it was encrypted with another FEKEK, the decryption will fail.  
+- The EcryptFS file header format contains the possibility for multiple key slots
+  where the randomly generated file encryption key (FEK) is encrypted with a different FEKEK for each slot.
+  Currently only the first key slot can be used so a file may fail to decrypt even though a valid FEKEK is provided. 
+  Key slots are not used by the `ecryptfs-utils`/the kernel implementation AFAIK so this is a theoretical limitation.
 
 Compatibility
 -------------
 
 To test compatibility with your specific version of EcryptFS just run the test suite with PHPUnit.
 The IntegrationTest class creates real EcryptFS mounts and writes files to the mounts to verify the functionality.
-That requires that the EcryptFS utilities package (e.g. ecryptfs-utils in Debian/Ubuntu) is installed and the tests
-are run by root or sudo without password is executable. 
+That requires that the EcryptFS utilities package (e.g. `ecryptfs-utils` in Debian/Ubuntu) is installed and the tests
+are run by root or you are allowed to execute `sudo` without password. 
 
-The library is developed on Debian Stretch with Kernel 4.9 but is at least compatible with the EcryptFS versions in Debian Jessie, the CI tests run on Ubuntu AFAIK.
-The EcryptFS on disk format seems pretty stable to the chances for incompatibilities with future Kernel Versions is quite slim.
+This library is developed on Debian Stretch with Kernel 4.9 but is at least compatible with the EcryptFS versions in Debian Jessie, the CI tests run on Ubuntu AFAIK.
+The EcryptFS on disk format seems pretty stable so the chances for incompatibilities with future Kernel versions are quite slim.
