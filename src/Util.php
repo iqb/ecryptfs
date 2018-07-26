@@ -103,11 +103,13 @@ abstract class Util
      * Calculate the signature of a key
      *
      * @param string $key Raw binary blob
-     * @return string Hex encoded signature
+     * @param bool $raw Whether to return the raw signature or the hex encoded signature
+     * @return string Key signature
      */
-    final public static function calculateSignature(string $key) : string
+    final public static function calculateSignature(string $key, bool $raw = false) : string
     {
-        return \bin2hex(\substr(\hash(self::KEY_DERIVATION_ALGO, $key, true), 0, ECRYPTFS_SIG_SIZE));
+        $signature = \substr(\hash(self::KEY_DERIVATION_ALGO, $key, true), 0, ECRYPTFS_SIG_SIZE);
+        return ($raw ? $signature : \bin2hex($signature));
     }
 
 
