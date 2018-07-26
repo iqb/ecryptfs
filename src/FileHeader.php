@@ -143,6 +143,12 @@ class FileHeader
         }
 
         $tag3 = Tag3Packet::parse($headerData, $pos);
+        $fekekSignature = Util::calculateSignature($fekek, true);
+        $tag11 = Tag11Packet::parse($headerData, $pos);
+
+        if ($tag11->contents !== $fekekSignature) {
+            throw new \InvalidArgumentException(\sprintf('Provided FEKEK has signature 0x%s but require key with signature 0x%s!', \bin2hex($fekekSignature), \bin2hex($tag11->contents)));
+        }
         $fek = self::decryptFileKey($cryptoEngine, $tag3->cipherCode, $fekek, $tag3->encryptedKey);
 
         $header = new self(
