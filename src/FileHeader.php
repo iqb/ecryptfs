@@ -101,6 +101,13 @@ class FileHeader
      */
     public $rootIv;
 
+    /**
+     * The marker that is used together with MAGIC_MARKER to indicate a valid header
+     *
+     * @var int
+     */
+    public $marker;
+
 
     public function __construct(int $size, int $cipherCode, string $fek, int $version = self::DEFAULT_VERSION, int $flags = 10, int $extentSize = self::DEFAULT_EXTENT_SIZE, int $extentsAtFront = 2)
     {
@@ -148,6 +155,7 @@ class FileHeader
             $headerValues['extentsatfront']
         );
         $header->encryptedFileKey = $tag3->encryptedKey;
+        $header->marker = $headerValues['marker1'];
 
         // Read remaining header data so stream is positioned at the beginning of the data
         if ($header->metadataSize > self::MINIMUM_HEADER_EXTENT_SIZE) {
