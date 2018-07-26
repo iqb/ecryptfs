@@ -117,7 +117,7 @@ class Tag3Packet
             . \chr($this->cipherCode)
             . \chr(Tag3Packet::S2L_IDENTIFIER)
             . \chr(Tag3Packet::HASH_MD5_IDENTIFIER)
-            . ($this->salt ?: \random_bytes(ECRYPTFS_SALT_SIZE))
+            . ($this->salt ?: \hex2bin(Util::DEFAULT_SALT_HEX))
             . \chr(Tag3Packet::HASH_DEFAULT_ITERATIONS)
             . $this->encryptedKey
         ;
