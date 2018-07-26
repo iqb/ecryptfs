@@ -39,6 +39,11 @@ class FileHeader
     const MAGIC_MARKER = 0x3c81b7f5;
 
     /**
+     * Current version written into encrypted files
+     */
+    const DEFAULT_VERSION = 3;
+
+    /**
      * Size of the unencrypted file
      *
      * @var int
@@ -97,7 +102,21 @@ class FileHeader
     public $rootIv;
 
 
-    public static function parse($fileHandle) : self
+    public function __construct(int $size, int $cipherCode, string $fek, int $version = self::DEFAULT_VERSION, int $flags = 10, int $extentSize = self::DEFAULT_EXTENT_SIZE, int $extentsAtFront = 2)
+    {
+        $this->size = $size;
+        $this->cipherCode = $cipherCode;
+        $this->fileKey = $fek;
+        $this->version = $version;
+        $this->flags = $flags;
+        $this->extentSize = $extentSize;
+        $this->extentsAtFront = $extentsAtFront;
+        $this->metadataSize = $this->extentsAtFront * $this->extentSize;
+        $this->rootIv = \hash('md5', $this->fileKey, true);
+    }
+
+
+    public static function parse($fileHandle, CryptoEngineInterface $cryptoEngine, string $fekek) : self
     {
         if (!\is_resource($fileHandle)) {
             throw new \InvalidArgumentException('Parameter $fileHandle must be an open file handle.');
@@ -116,25 +135,23 @@ class FileHeader
             throw new \DomainException('Invalid magic marker.');
         }
 
-        $header = new self();
-        $header->size           = $headerValues['size'];
-        $header->version        = $headerValues['version'];
-        $header->flags          = $headerValues['flags'];
-        $header->extentSize     = $headerValues['extentsize'];
-        $header->extentsAtFront = $headerValues['extentsatfront'];
-        $header->metadataSize   = $header->extentsAtFront * $header->extentSize;
+        $tag3 = Tag3Packet::parse($headerData, $pos);
+        $fek = self::decryptFileKey($cryptoEngine, $tag3->cipherCode, $fekek, $tag3->encryptedKey);
+
+        $header = new self(
+            $headerValues['size'],
+            $tag3->cipherCode,
+            $fek,
+            $headerValues['version'],
+            $headerValues['flags'],
+            $headerValues['extentsize'],
+            $headerValues['extentsatfront']
+        );
+        $header->encryptedFileKey = $tag3->encryptedKey;
 
         // Read remaining header data so stream is positioned at the beginning of the data
         if ($header->metadataSize > self::MINIMUM_HEADER_EXTENT_SIZE) {
             $headerData .= \stream_get_contents($fileHandle, ($header->metadataSize - self::MINIMUM_HEADER_EXTENT_SIZE));
-        }
-
-        $tag3 = Tag3Packet::parse($headerData, $pos);
-        $header->cipherCode = $tag3->cipherCode;
-        $header->encryptedFileKey = $tag3->encryptedKey;
-
-        if (!\in_array(\strlen($header->encryptedFileKey), CryptoEngineInterface::CIPHER_KEY_SIZES[$header->cipherCode])) {
-            throw new \RuntimeException(\sprintf("Invalid key size (%u bit) for cipher 0x%x detected, file header may be corrupt!", \strlen($header->encryptedFileKey)*8, $header->cipherCode));
         }
 
         return $header;
@@ -144,29 +161,35 @@ class FileHeader
     /**
      * Decrypt the file encryption key (FEK) using the file encryption key encryption key (FEKEK).
      * The cipher method for FEK encryption and for file contents encryption is encoded in the header.
-     * The cipher key size for FEK encryption is the same as for file contents encryption so
-     *  the same number of bytes from the FEKEK is uses as bytes for the FEK exist.
      *
      * @param CryptoEngineInterface $cryptoEngine
-     * @param string $fekek
+     * @param int $cipherCode The cipher code used to encrypt the FEK
+     * @param string $fekek The FEKEK
+     * @param string $encryptedFek The encrypted FEK
+     * @return string The decrypted FEK
      */
-    public function decryptFileKey(CryptoEngineInterface $cryptoEngine, string $fekek)
+    private static function decryptFileKey(CryptoEngineInterface $cryptoEngine, int $cipherCode, string $fekek, string $encryptedFek) : string
     {
-        $cipherKeySize = \strlen($this->encryptedFileKey);
+        if (\in_array(\strlen($encryptedFek), $cryptoEngine::CIPHER_KEY_SIZES[$cipherCode], true)) {
+            $cipherKeySize = \strlen($encryptedFek);
+        } else {
+            throw new \InvalidArgumentException(\sprintf("Invalid key size (%u byte) for cipher 0x%x detected, %s bytes possible. File header may be corrupt!", \strlen($encryptedFek), $cipherCode, \implode(', ', $cryptoEngine::CIPHER_KEY_SIZES[$cipherCode])));
+        }
+
         if (\strlen($fekek) < $cipherKeySize) {
             throw new \InvalidArgumentException(\sprintf("Decryption requires %u key bytes, supplied FEKEK has only %u bytes!", $cipherKeySize, \strlen($fekek)));
         }
         $realFekek = \substr($fekek, 0, $cipherKeySize);
 
-        $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$this->cipherCode];
+        $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$cipherCode];
         $iv = \str_repeat("\0", $blockSize);
 
         // Emulate ECB mode here ...
-        $this->fileKey = '';
-        foreach (\str_split($this->encryptedFileKey, $blockSize) as $block) {
-            $this->fileKey .= $cryptoEngine->decrypt($block, $this->cipherCode, $realFekek, $iv);
+        $fek = '';
+        foreach (\str_split($encryptedFek, $blockSize) as $block) {
+            $fek .= $cryptoEngine->decrypt($block, $cipherCode, $realFekek, $iv);
         }
 
-        $this->rootIv = \hash('md5', $this->fileKey, true);
+        return $fek;
     }
 }

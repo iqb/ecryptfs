@@ -148,8 +148,7 @@ class StreamWrapper
             return false;
         }
 
-        $this->header = FileHeader::parse($this->encrypted);
-        $this->header->decryptFileKey($this->cryptoEngine, $this->fekek);
+        $this->header = FileHeader::parse($this->encrypted, $this->cryptoEngine, $this->fekek);
         $this->position = $this->header->metadataSize;
         $this->maxPosition = $this->header->metadataSize + $this->header->size;
 
@@ -168,7 +167,7 @@ class StreamWrapper
             throw new \InvalidArgumentException("Can only read multiples of " . $this->header->extentSize . " blocks");
         }
 
-        $readBlocks = $length / $this->header->extentSize;
+        $readBlocks = \ceil($length / $this->header->extentSize);
         $startBlock = \floor(($this->position - $this->header->metadataSize) / $this->header->extentSize);
 
         $return = '';
