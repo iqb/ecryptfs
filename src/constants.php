@@ -16,7 +16,7 @@ namespace Iqb\Ecryptfs;
 /**
  * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/include/linux/ecryptfs.h#n45
  */
-const FC2440_CIPHER_RSA       = 0x01;
+const RFC2440_CIPHER_RSA      = 0x01;
 
 /**
  * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/include/linux/ecryptfs.h#n36
