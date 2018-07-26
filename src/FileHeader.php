@@ -123,6 +123,15 @@ class FileHeader
     }
 
 
+    /**
+     * Parse a header from the supplied stream and decrypt the FEK.
+     * After parsing, the streams position is at the first byte of the contents.
+     *
+     * @param $fileHandle
+     * @param CryptoEngineInterface $cryptoEngine
+     * @param string $fekek
+     * @return FileHeader
+     */
     public static function parse($fileHandle, CryptoEngineInterface $cryptoEngine, string $fekek) : self
     {
         if (!\is_resource($fileHandle)) {
@@ -149,7 +158,7 @@ class FileHeader
         if ($tag11->contents !== $fekekSignature) {
             throw new \InvalidArgumentException(\sprintf('Provided FEKEK has signature 0x%s but require key with signature 0x%s!', \bin2hex($fekekSignature), \bin2hex($tag11->contents)));
         }
-        $fek = self::decryptFileKey($cryptoEngine, $tag3->cipherCode, $fekek, $tag3->encryptedKey);
+        $fek = self::decryptFileEncryptionKey($cryptoEngine, $tag3->cipherCode, $fekek, $tag3->encryptedKey);
 
         $header = new self(
             $headerValues['size'],
@@ -173,6 +182,42 @@ class FileHeader
 
 
     /**
+     * Generate the on disk binary representation of this header.
+     *
+     * @param CryptoEngineInterface $cryptoEngine
+     * @param string $fekek
+     * @return string
+     * @throws \Exception
+     */
+    public function generate(CryptoEngineInterface $cryptoEngine, string $fekek) : string
+    {
+        if ($this->marker === null) {
+            $this->marker = \random_int(0, 2^32-1);
+        }
+
+        $string = pack(
+            'JNNCsCNn',
+            $this->size,
+            $this->marker,
+            $this->marker ^ self::MAGIC_MARKER,
+            $this->version,
+            0,
+            $this->flags,
+            $this->extentSize,
+            $this->extentsAtFront
+        );
+
+        $encryptedFek = self::encryptFileEncryptionKey($cryptoEngine, $this->cipherCode, $fekek, $this->fileKey);
+        $tag3 = new Tag3Packet($encryptedFek, $this->cipherCode);
+        $string .= $tag3->generate();
+        $tag11 = new Tag11Packet(Util::calculateSignature($fekek, true));
+        $string .= $tag11->generate();
+        $string .= \str_repeat("\0", $this->metadataSize - \strlen($string));
+        return $string;
+    }
+
+
+    /**
      * Decrypt the file encryption key (FEK) using the file encryption key encryption key (FEKEK).
      * The cipher method for FEK encryption and for file contents encryption is encoded in the header.
      *
@@ -182,7 +227,7 @@ class FileHeader
      * @param string $encryptedFek The encrypted FEK
      * @return string The decrypted FEK
      */
-    private static function decryptFileKey(CryptoEngineInterface $cryptoEngine, int $cipherCode, string $fekek, string $encryptedFek) : string
+    private static function decryptFileEncryptionKey(CryptoEngineInterface $cryptoEngine, int $cipherCode, string $fekek, string $encryptedFek) : string
     {
         if (\in_array(\strlen($encryptedFek), $cryptoEngine::CIPHER_KEY_SIZES[$cipherCode], true)) {
             $cipherKeySize = \strlen($encryptedFek);
@@ -205,5 +250,39 @@ class FileHeader
         }
 
         return $fek;
+    }
+
+
+    /**
+     * Encrypt the file encryption key (FEK) using the file encryption key encryption key (FEKEK).
+     *
+     * @param CryptoEngineInterface $cryptoEngine
+     * @param int $cipherCode
+     * @param string $fekek
+     * @param string $fek
+     * @return string
+     */
+    private static function encryptFileEncryptionKey(CryptoEngineInterface $cryptoEngine, int $cipherCode, string $fekek, string $fek) : string
+    {
+        if (\in_array(\strlen($fek), $cryptoEngine::CIPHER_KEY_SIZES[$cipherCode], true)) {
+            $cipherKeySize = \strlen($fek);
+        } else {
+            throw new \InvalidArgumentException(\sprintf("Invalid key size (%u byte) for cipher 0x%x detected, %s bytes possible. File header may be corrupt!", \strlen($fek), $cipherCode, \implode(', ', $cryptoEngine::CIPHER_KEY_SIZES[$cipherCode])));
+        }
+
+        if (\strlen($fekek) < $cipherKeySize) {
+            throw new \InvalidArgumentException(\sprintf("Decryption requires %u key bytes, supplied FEKEK has only %u bytes!", $cipherKeySize, \strlen($fekek)));
+        }
+        $realFekek = \substr($fekek, 0, $cipherKeySize);
+        $blockSize = $cryptoEngine::CIPHER_BLOCK_SIZES[$cipherCode];
+        $iv = \str_repeat("\0", $blockSize);
+
+        // Emulate ECB mode here ...
+        $encryptedFek = '';
+        foreach (\str_split($fek, $blockSize) as $block) {
+            $encryptedFek .= $cryptoEngine->encrypt($block, $cipherCode, $realFekek, $iv);
+        }
+
+        return $encryptedFek;
     }
 }
