@@ -100,7 +100,7 @@ class StreamWrapper
             $this->fekek = Util::deriveFEKEK($myContext[self::CONTEXT_PASSPHRASE]);
         } else {
             if ($options & \STREAM_REPORT_ERRORS) {
-                throw new \InvalidArgumentException("Passphrase required!");
+                \trigger_error("Passphrase required!", \E_USER_WARNING);
             }
             return false;
         }
@@ -110,7 +110,7 @@ class StreamWrapper
             $this->cryptoEngine = $myContext[self::CONTEXT_ENGINE];
             if (!$this->cryptoEngine instanceof CryptoEngineInterface) {
                 if ($options & \STREAM_REPORT_ERRORS) {
-                    new \InvalidArgumentException("Supplied crypto engine must implement " . CryptoEngineInterface::class);
+                    trigger_error("Supplied crypto engine must implement " . CryptoEngineInterface::class, \E_USER_WARNING);
                 }
                 return false;
             }
