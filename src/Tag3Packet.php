@@ -131,6 +131,7 @@ class Tag3Packet
      * Only encryptedKey and cipherCode are used, all other fields are not used.
      *
      * @link https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/tree/fs/ecryptfs/keystore.c?h=v4.11.3#n1360
+     * @throws ParseException
      */
     public static function parse(string $data, int &$pos = 0) : self
     {
