@@ -11,6 +11,7 @@ namespace Iqb\Ecryptfs;
 
 /**
  * Literal Data Packet (Tag 11)
+ * A Tag 11 packet contains the signature of the FEKEK used to encrypt the FEK in the previous Tag 3 packet.
  *
  * @author Dennis Birkholz <ecryptfs@birkholz.org>
  * @link https://tools.ietf.org/html/rfc2440#section-5.9 OpenPGP Message Format: Literal Data Packet (Tag 11)
