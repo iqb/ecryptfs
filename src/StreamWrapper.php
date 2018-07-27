@@ -92,49 +92,45 @@ class StreamWrapper
 
     public function stream_open(string $path, string $mode, int $options) : bool
     {
+        $displayErrors = (($options & \STREAM_REPORT_ERRORS) !== 0);
         $context = \stream_context_get_options($this->context);
-        $myContext = (isset($context[self::STREAM_NAME]) && \is_array($context[self::STREAM_NAME]) ? $context[self::STREAM_NAME] : []);
+        $contextOptions = (isset($context[self::STREAM_NAME]) && \is_array($context[self::STREAM_NAME]) ? $context[self::STREAM_NAME] : []);
 
         // Read passphrase from context and derive file encryption key encryption key (FEKEK)
-        if (\array_key_exists(self::CONTEXT_PASSPHRASE, $myContext)) {
-            $this->fekek = Util::deriveFEKEK($myContext[self::CONTEXT_PASSPHRASE]);
+        if (\array_key_exists(self::CONTEXT_PASSPHRASE, $contextOptions)) {
+            $this->fekek = Util::deriveFEKEK($contextOptions[self::CONTEXT_PASSPHRASE]);
         } else {
-            if ($options & \STREAM_REPORT_ERRORS) {
-                \trigger_error("Passphrase required!", \E_USER_WARNING);
-            }
+            $displayErrors && \trigger_error("Passphrase required!", \E_USER_WARNING);
             return false;
         }
 
         // Get crypto engine from context or use OpenSSL by default
-        if (\array_key_exists(self::CONTEXT_ENGINE, $myContext)) {
-            $this->cryptoEngine = $myContext[self::CONTEXT_ENGINE];
+        if (\array_key_exists(self::CONTEXT_ENGINE, $contextOptions) && $contextOptions[self::CONTEXT_ENGINE] !== null) {
+            $this->cryptoEngine = $contextOptions[self::CONTEXT_ENGINE];
             if (!$this->cryptoEngine instanceof CryptoEngineInterface) {
-                if ($options & \STREAM_REPORT_ERRORS) {
-                    trigger_error("Supplied crypto engine must implement " . CryptoEngineInterface::class, \E_USER_WARNING);
-                }
+                $displayErrors && trigger_error("Supplied crypto engine must implement " . CryptoEngineInterface::class, \E_USER_WARNING);
                 return false;
             }
         } else {
             $this->cryptoEngine = new OpenSslCryptoEngine();
         }
 
-        // Use stream from context or open file
-        if (\array_key_exists(self::CONTEXT_STREAM, $myContext)) {
-            $this->encrypted = $myContext[self::CONTEXT_STREAM];
+        // Use stream from context
+        if (\array_key_exists(self::CONTEXT_STREAM, $contextOptions)) {
+            $this->encrypted = $contextOptions[self::CONTEXT_STREAM];
         }
 
+        // Open file from $path
         else {
             $prefix = self::STREAM_NAME . '://';
 
             if (\substr($path, 0, \strlen($prefix)) !== $prefix) {
-                if ($options & \STREAM_REPORT_ERRORS) {
-                    \trigger_error("Invalid path!", \E_USER_WARNING);
-                }
+                $displayErrors && \trigger_error("Invalid path!", \E_USER_WARNING);
                 return false;
             }
 
             $realPath = \substr($path, \strlen($prefix));
-            if ($options & \STREAM_REPORT_ERRORS) {
+            if ($displayErrors) {
                 $this->encrypted = \fopen($realPath, $mode, ($options & \STREAM_USE_PATH !== 0), $this->context);
             } else {
                 $this->encrypted = @\fopen($realPath, $mode, ($options & \STREAM_USE_PATH !== 0), $this->context);
@@ -142,13 +138,42 @@ class StreamWrapper
         }
 
         if (!\is_resource($this->encrypted)) {
-            if ($options & \STREAM_REPORT_ERRORS) {
-                \trigger_error("Failed to open encrypted file!", \E_USER_WARNING);
-            }
+            $displayErrors && \trigger_error("Failed to open encrypted file!", \E_USER_WARNING);
             return false;
         }
 
-        $this->header = FileHeader::parse($this->encrypted, $this->cryptoEngine, $this->fekek);
+        $fileMode = new FileMode($mode);
+        if ($fileMode->write) {
+            if (!\array_key_exists(self::CONTEXT_SIZE, $contextOptions) || !\is_int($contextOptions[self::CONTEXT_SIZE])) {
+                $displayErrors && \trigger_error("File size must be provided via stream context!", \E_USER_WARNING);
+                return false;
+            }
+
+            if (\array_key_exists(self::CONTEXT_CIPHER, $contextOptions) && $contextOptions[self::CONTEXT_CIPHER]) {
+                if (!\array_key_exists($contextOptions[self::CONTEXT_CIPHER], CryptoEngineInterface::CIPHER_KEY_SIZES)) {
+                    $displayErrors && \trigger_error('Invalid cipher specified, use one of the RFC2440_CIPHER_* constants.', \E_USER_WARNING);
+                    return false;
+                }
+                $cipherCode = $contextOptions[self::CONTEXT_CIPHER];
+            } else {
+                $cipherCode = RFC2440_CIPHER_AES_256;
+            }
+            if (\array_key_exists(self::CONTEXT_FEK, $contextOptions) && $contextOptions[self::CONTEXT_FEK]) {
+                if (!\in_array(\strlen($contextOptions[self::CONTEXT_FEK]), CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode])) {
+                    $displayErrors && \trigger_error('File encryption key can only be ' . \implode(', ', CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode]) . ' bytes', \E_USER_WARNING);
+                    return false;
+                }
+                $fek = $contextOptions[self::CONTEXT_FEK];
+            } else {
+                $fek = \random_bytes(\max(CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode]));
+            }
+
+            $this->header = new FileHeader($contextOptions[self::CONTEXT_SIZE], $cipherCode, $fek);
+        }
+
+        else {
+            $this->header = FileHeader::parse($this->encrypted, $this->cryptoEngine, $this->fekek);
+        }
         $this->position = $this->header->metadataSize;
         $this->maxPosition = $this->header->metadataSize + $this->header->size;
 
