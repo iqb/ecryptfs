@@ -205,6 +205,8 @@ class IntegrationTest extends TestCase
         foreach(['test', 'loremipsum.txt'] as $file) {
             // Copy sample file onto decrypted ecyptfs mount
             $sourceName = $this->dataDir . '/decrypted/' . $file;
+            $contents = \file_get_contents($sourceName);
+            $size = \filesize($sourceName);
             $this->assertTrue(copy($sourceName, $this->decryptedDir . '/' . $file));
 
             // Verify a single file was created in the ecryptfs mount, try to decrypt the filename and match it against the original name
@@ -217,11 +219,21 @@ class IntegrationTest extends TestCase
             $this->assertTrue(\file_Exists($this->encryptedDir . '/' . $encryptedSourceName), \sprintf("File %s not found, got only %s, passphase was %s", $encryptedSourceName, \basename($files[0]), $passphrase));
 
             // Decrypt sample file and compare it to original data
-            $context = \stream_context_create([ StreamWrapper::STREAM_NAME => [ 'passphrase' => $passphrase ]]);
+            $context = \stream_context_create([ StreamWrapper::STREAM_NAME => [ StreamWrapper::CONTEXT_PASSPHRASE => $passphrase ]]);
             $data = \file_get_contents(StreamWrapper::STREAM_NAME . '://' . $files[0], null, $context);
-            $this->assertEquals(\file_get_contents($sourceName), $data);
+            $this->assertEquals($contents, $data);
 
             unlink($this->decryptedDir . '/' . $file);
+
+            // Write a file and verify kernel can read it
+            $encryptedTargetName = Util::encryptFilename($this->cryptoEngine, $file . '-target', $fnek, $fnekCipherCode, $fnekCipherBytes);
+
+            $context = \stream_context_create([ StreamWrapper::STREAM_NAME => [ StreamWrapper::CONTEXT_PASSPHRASE => $passphrase, StreamWrapper::CONTEXT_SIZE => $size]]);
+            \file_put_contents(StreamWrapper::STREAM_NAME . '://' . $this->encryptedDir . '/' . $encryptedTargetName, $contents, 0, $context);
+            $this->assertSame($size, \filesize($this->decryptedDir . '/' . $file . '-target'));
+            $this->assertSame($contents, \file_get_contents($this->decryptedDir . '/' . $file . '-target'));
+
+            unlink($this->decryptedDir . '/' . $file . '-target');
         }
 
     }

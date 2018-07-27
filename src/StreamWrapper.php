@@ -31,6 +31,24 @@ class StreamWrapper
      */
     const CONTEXT_STREAM = 'stream';
 
+    /**
+     * Name of the stream context option to provide the total file size.
+     * Required when writing to a non-seekable stream. (Currently always required for writing)
+     */
+    const CONTEXT_SIZE = 'size';
+
+    /**
+     * Name of the stream context option to provide a predetermined file encryption key (FEK)
+     *  instead of using a random key.
+     */
+    const CONTEXT_FEK = 'fek';
+
+    /**
+     * Name of the stream context option to specify the cipher used.
+     * By default AES256 is used.
+     */
+    const CONTEXT_CIPHER = 'cipher';
+
 
     /**
      * @var resource
@@ -169,6 +187,7 @@ class StreamWrapper
             }
 
             $this->header = new FileHeader($contextOptions[self::CONTEXT_SIZE], $cipherCode, $fek);
+            \fwrite($this->encrypted, $this->header->generate($this->cryptoEngine, $this->fekek));
         }
 
         else {
@@ -218,6 +237,28 @@ class StreamWrapper
         return $return;
     }
 
+
+    public function stream_write(string $data) : int
+    {
+        $currentBlock = \floor(($this->position - $this->header->metadataSize) / $this->header->extentSize);
+        $written = 0;
+
+        foreach(\str_split($data, $this->header->extentSize) as $block) {
+            $iv = \hash("md5", $this->header->rootIv . \str_pad("$currentBlock", 16, "\0", \STR_PAD_RIGHT), true);
+
+            if (\strlen($block) < $this->header->extentSize) {
+                $block = \str_pad($block, $this->header->extentSize, "\0", \STR_PAD_RIGHT);
+            }
+
+            $encrypted = $this->cryptoEngine->encrypt($block, $this->header->cipherCode, $this->header->fileKey, $iv);
+            $written += \fwrite($this->encrypted, $encrypted);
+
+            $currentBlock++;
+        }
+
+        $this->position += $written;
+        return \strlen($data);
+    }
 
     public function stream_eof() : bool
     {
