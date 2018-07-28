@@ -81,25 +81,11 @@ class FileHeader
     public $cipherCode;
 
     /**
-     * Encrypted file encryption key (FEK), encrypted with the FEKEK
-     *
-     * @var string
-     */
-    public $encryptedFileKey;
-
-    /**
      * Decrypted file encryption key (FEK)
      *
      * @var string
      */
-    public $fileKey;
-
-    /**
-     * Root initialisation vector, used to calculate IV for each block.
-     *
-     * @var string
-     */
-    public $rootIv;
+    public $fek;
 
     /**
      * The marker that is used together with MAGIC_MARKER to indicate a valid header
@@ -109,17 +95,16 @@ class FileHeader
     public $marker;
 
 
-    public function __construct(int $size, int $cipherCode, string $fek, int $version = self::DEFAULT_VERSION, int $flags = 10, int $extentSize = self::DEFAULT_EXTENT_SIZE, int $extentsAtFront = 2)
+    public function __construct(int $size, int $cipherCode = ECRYPTFS_DEFAULT_CIPHER_CODE, string $fek = null, int $version = self::DEFAULT_VERSION, int $flags = 10, int $extentSize = self::DEFAULT_EXTENT_SIZE, int $extentsAtFront = 2)
     {
         $this->size = $size;
         $this->cipherCode = $cipherCode;
-        $this->fileKey = $fek;
+        $this->fek = ($fek ?: \random_bytes(CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode][0]));
         $this->version = $version;
         $this->flags = $flags;
         $this->extentSize = $extentSize;
         $this->extentsAtFront = $extentsAtFront;
         $this->metadataSize = $this->extentsAtFront * $this->extentSize;
-        $this->rootIv = \hash('md5', $this->fileKey, true);
     }
 
 
@@ -169,7 +154,6 @@ class FileHeader
             $headerValues['extentsize'],
             $headerValues['extentsatfront']
         );
-        $header->encryptedFileKey = $tag3->encryptedKey;
         $header->marker = $headerValues['marker1'];
 
         // Read remaining header data so stream is positioned at the beginning of the data
@@ -207,7 +191,7 @@ class FileHeader
             $this->extentsAtFront
         );
 
-        $encryptedFek = self::encryptFileEncryptionKey($cryptoEngine, $this->cipherCode, $fekek, $this->fileKey);
+        $encryptedFek = self::encryptFileEncryptionKey($cryptoEngine, $this->cipherCode, $fekek, $this->fek);
         $tag3 = new Tag3Packet($encryptedFek, $this->cipherCode);
         $string .= $tag3->generate();
         $tag11 = new Tag11Packet(Util::calculateSignature($fekek, true));

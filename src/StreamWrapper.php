@@ -68,6 +68,11 @@ class StreamWrapper
     private $cryptoEngine;
 
     /**
+     * @var CryptoContext
+     */
+    private $cryptoContext;
+
+    /**
      * @var FileHeader
      */
     private $header;
@@ -167,31 +172,31 @@ class StreamWrapper
                 return false;
             }
 
+            $this->cryptoContext = CryptoContext::createForSize($contextOptions[self::CONTEXT_SIZE], $this->fekek, $this->cryptoEngine);
+            $this->header = $this->cryptoContext->getHeader();
+
             if (\array_key_exists(self::CONTEXT_CIPHER, $contextOptions) && $contextOptions[self::CONTEXT_CIPHER]) {
                 if (!\array_key_exists($contextOptions[self::CONTEXT_CIPHER], CryptoEngineInterface::CIPHER_KEY_SIZES)) {
                     $displayErrors && \trigger_error('Invalid cipher specified, use one of the RFC2440_CIPHER_* constants.', \E_USER_WARNING);
                     return false;
                 }
-                $cipherCode = $contextOptions[self::CONTEXT_CIPHER];
-            } else {
-                $cipherCode = RFC2440_CIPHER_AES_256;
-            }
-            if (\array_key_exists(self::CONTEXT_FEK, $contextOptions) && $contextOptions[self::CONTEXT_FEK]) {
-                if (!\in_array(\strlen($contextOptions[self::CONTEXT_FEK]), CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode])) {
-                    $displayErrors && \trigger_error('File encryption key can only be ' . \implode(', ', CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode]) . ' bytes', \E_USER_WARNING);
-                    return false;
-                }
-                $fek = $contextOptions[self::CONTEXT_FEK];
-            } else {
-                $fek = \random_bytes(\max(CryptoEngineInterface::CIPHER_KEY_SIZES[$cipherCode]));
+                $this->header->cipherCode = $contextOptions[self::CONTEXT_CIPHER];
             }
 
-            $this->header = new FileHeader($contextOptions[self::CONTEXT_SIZE], $cipherCode, $fek);
-            \fwrite($this->encrypted, $this->header->generate($this->cryptoEngine, $this->fekek));
+            if (\array_key_exists(self::CONTEXT_FEK, $contextOptions) && $contextOptions[self::CONTEXT_FEK]) {
+                if (!\in_array(\strlen($contextOptions[self::CONTEXT_FEK]), CryptoEngineInterface::CIPHER_KEY_SIZES[$this->header->cipherCode])) {
+                    $displayErrors && \trigger_error('File encryption key can only be ' . \implode(', ', CryptoEngineInterface::CIPHER_KEY_SIZES[$this->header->cipherCode]) . ' bytes', \E_USER_WARNING);
+                    return false;
+                }
+                $this->header->fek = $contextOptions[self::CONTEXT_FEK];
+            }
+
+            \fwrite($this->encrypted, $this->cryptoContext->encryptHeader());
         }
 
         else {
-            $this->header = FileHeader::parse($this->encrypted, $this->cryptoEngine, $this->fekek);
+            $this->cryptoContext = CryptoContext::createFromStream($this->encrypted, $this->fekek, $this->cryptoEngine);
+            $this->header = $this->cryptoContext->getHeader();
         }
         $this->position = $this->header->metadataSize;
         $this->maxPosition = $this->header->metadataSize + $this->header->size;
@@ -215,23 +220,14 @@ class StreamWrapper
         $startBlock = \floor(($this->position - $this->header->metadataSize) / $this->header->extentSize);
 
         $return = '';
-        for ($i=0; $i<$readBlocks && !$this->stream_eof(); $i++) {
-            $block = $startBlock + $i;
-            $iv = \hash("md5", $this->header->rootIv . \str_pad("$block", 16, "\0", \STR_PAD_RIGHT), true);
-
-            $encrypted = \stream_get_contents($this->encrypted, $this->header->extentSize);
-            if (\strlen($encrypted) !== $this->header->extentSize) {
-                throw new \RuntimeException("Could not read enough data from stream, got only " . \strlen($encrypted) . " bytes instead of " . $this->header->extentSize);
+        for ($i=0, $blockNumber = $startBlock; $i<$readBlocks && !$this->stream_eof(); $i++, $blockNumber++) {
+            $encryptedBlockData = \stream_get_contents($this->encrypted, $this->header->extentSize);
+            if (\strlen($encryptedBlockData) !== $this->header->extentSize) {
+                throw new \RuntimeException("Could not read enough data from stream, got only " . \strlen($encryptedBlockData) . " bytes instead of " . $this->header->extentSize);
             }
+            $return .= $this->cryptoContext->decryptBlock($blockNumber, $encryptedBlockData);
+            // Use ftell() in the loop so stream_eof() works ...
             $this->position = \ftell($this->encrypted);
-            $decrypted = $this->cryptoEngine->decrypt($encrypted, $this->header->cipherCode, $this->header->fileKey, $iv);
-
-            // Remove garbage from end
-            if ($this->position > $this->maxPosition) {
-                $return .= \substr($decrypted, 0, $this->header->size % $this->header->extentSize);
-            } else {
-                $return .= $decrypted;
-            }
         }
 
         return $return;
@@ -243,16 +239,9 @@ class StreamWrapper
         $currentBlock = \floor(($this->position - $this->header->metadataSize) / $this->header->extentSize);
         $written = 0;
 
-        foreach(\str_split($data, $this->header->extentSize) as $block) {
-            $iv = \hash("md5", $this->header->rootIv . \str_pad("$currentBlock", 16, "\0", \STR_PAD_RIGHT), true);
-
-            if (\strlen($block) < $this->header->extentSize) {
-                $block = \str_pad($block, $this->header->extentSize, "\0", \STR_PAD_RIGHT);
-            }
-
-            $encrypted = $this->cryptoEngine->encrypt($block, $this->header->cipherCode, $this->header->fileKey, $iv);
+        foreach(\str_split($data, $this->header->extentSize) as $blockData) {
+            $encrypted = $this->cryptoContext->encryptBlock($currentBlock, $blockData);
             $written += \fwrite($this->encrypted, $encrypted);
-
             $currentBlock++;
         }
 

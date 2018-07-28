@@ -33,7 +33,7 @@ class FileHeaderTest extends \PHPUnit_Framework_TestCase
         $file = \fopen($this->testfile, 'r');
         $fileHeader = FileHeader::parse($file, $cryptoEngine, $fekek);
 
-        $testFileHeader = new FileHeader($fileHeader->size, $fileHeader->cipherCode, $fileHeader->fileKey);
+        $testFileHeader = new FileHeader($fileHeader->size, $fileHeader->cipherCode, $fileHeader->fek);
         $testFileHeader->marker = $fileHeader->marker;
         $this->assertSame(
             \bin2hex(\file_get_contents($this->testfile, false, null, 0, $fileHeader->metadataSize)),
