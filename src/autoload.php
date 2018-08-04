@@ -10,8 +10,8 @@
 namespace Iqb\Ecryptfs;
 
 // Verify mbstring function overload is disabled
-if (\extension_loaded('mbstring') && \ini_get('mbstring.func_overload')) {
-    throw new \RuntimeException('EcryptFS does not work with mbstring.func_overload=1 set in your PHP.ini. Please disable it!');
+if (\extension_loaded('mbstring') && ((\ini_get('mbstring.func_overload') & 2) !== 0)) {
+    throw new \RuntimeException('The multibyte string extensions is set to overload strlen/substr function (via mbstring.func_overload configuration in your PHP.ini). Please disable it!');
 }
 
 require_once(__DIR__ . '/constants.php');

@@ -10,8 +10,9 @@
 
 namespace Iqb\Ecryptfs;
 
+use PHPUnit\Framework\TestCase;
 
-class FileModeTest extends \PHPUnit_Framework_TestCase
+class FileModeTest extends TestCase
 {
     private $appendixes = [
         '' => [

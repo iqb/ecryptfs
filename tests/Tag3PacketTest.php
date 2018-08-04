@@ -9,10 +9,12 @@
 
 namespace Iqb\Ecryptfs;
 
+use PHPUnit\Framework\TestCase;
+
 /**
  * @author Dennis Birkholz <ecryptfs@birkholz.org>
  */
-class Tag3PacketTest extends \PHPUnit\Framework\TestCase
+class Tag3PacketTest extends TestCase
 {
     /**
      * Size in bytes for the binary key required for the default cipher

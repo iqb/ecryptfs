@@ -9,20 +9,22 @@
 
 namespace Iqb\Ecryptfs;
 
+use PHPUnit\Framework\TestCase;
+
 /**
  * @author Dennis Birkholz <ecryptfs@birkholz.org>
  */
-class Tag11PacketTest extends \PHPUnit\Framework\TestCase
+class Tag11PacketTest extends TestCase
 {
     private $contents = '1234567890';
-    
-    
+
+
     /**
      * @test
      */
     public function testGenerate()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -31,11 +33,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         $this->assertEquals($packet, (new Tag11Packet($this->contents))->generate());
     }
-    
-    
+
+
     /**
      * @test
      */
@@ -51,13 +53,13 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . $this->contents
             . "blabla"
         ;
-        
+
         $pos = 4;
         $tag = Tag11Packet::parse($packet, $pos);
         $this->assertEquals($this->contents, $tag->contents);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -65,7 +67,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailShortPacket()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE-1)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -73,11 +75,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . Tag11Packet::PACKET_FILENAME
             . \chr(0).\chr(0).\chr(0)
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -85,7 +87,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailPacketType()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE-1)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -94,11 +96,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -106,7 +108,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailPacketLength()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(254)
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -115,11 +117,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -127,7 +129,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailMinPacketLength()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(10)
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -136,11 +138,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -148,7 +150,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailCorruptPacket()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents) + 5)
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -157,11 +159,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -169,7 +171,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailFormatSpecifier()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER-1)
@@ -178,11 +180,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -190,7 +192,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailFilenameLength()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -199,11 +201,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -211,7 +213,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailFilename()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -220,11 +222,11 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(0).\chr(0).\chr(0)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
-    
-    
+
+
     /**
      * @test
      * @expectedException \Iqb\Ecryptfs\ParseException
@@ -232,7 +234,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
      */
     public function testParseFailDate()
     {
-        $packet = 
+        $packet =
               \chr(Tag11Packet::PACKET_TYPE)
             . \chr(Tag11Packet::MIN_PACKET_LENGTH + \strlen($this->contents))
             . \chr(Tag11Packet::FORMAT_SPECIFIER)
@@ -241,7 +243,7 @@ class Tag11PacketTest extends \PHPUnit\Framework\TestCase
             . \chr(0).\chr(1).\chr(2).\chr(3)
             . $this->contents
         ;
-        
+
         Tag11Packet::parse($packet);
     }
 }

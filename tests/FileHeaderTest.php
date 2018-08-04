@@ -10,8 +10,9 @@
 
 namespace Iqb\Ecryptfs;
 
+use PHPUnit\Framework\TestCase;
 
-class FileHeaderTest extends \PHPUnit_Framework_TestCase
+class FileHeaderTest extends TestCase
 {
     private $passphrase = 'testtest';
     private $testfile = __DIR__ . '/data/encrypted/ECRYPTFS_FNEK_ENCRYPTED.FWYfdVWu0L3WzkakI4q9u3Q6AnT7JXlK1y60Vqyn5jsDHcG6MURT9qDmVE--';

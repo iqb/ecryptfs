@@ -88,7 +88,7 @@ final class BaseConverter
      */
     public static function encode(string $decoded) : string
     {
-        $inputLength = \mb_strlen($decoded, '8bit');
+        $inputLength = \strlen($decoded);
 
         // Each encoded char holds only 6 bit of the original 8 bit
         // so a block of 3 original chars results in 4 encoded chars.
