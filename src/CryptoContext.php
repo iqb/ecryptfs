@@ -71,6 +71,7 @@ class CryptoContext
      */
     public static function createForSize(int $size, string $fekek, CryptoEngineInterface $cryptoEngine = null)
     {
+        $cryptoEngine || $cryptoEngine = new OpenSslCryptoEngine();
         return new self($cryptoEngine, $fekek, new FileHeader($size));
     }
 
