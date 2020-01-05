@@ -17,6 +17,11 @@ class StreamWrapper
     const STREAM_NAME = 'ecryptfs';
 
     /**
+     * Name of the file encryption key encryption key context option
+     */
+    const CONTEXT_FEKEK = 'fekek';
+
+    /**
      * Name of the passphrase context option
      */
     const CONTEXT_PASSPHRASE = 'passphrase';
@@ -119,11 +124,17 @@ class StreamWrapper
         $context = \stream_context_get_options($this->context);
         $contextOptions = (isset($context[self::STREAM_NAME]) && \is_array($context[self::STREAM_NAME]) ? $context[self::STREAM_NAME] : []);
 
+        // Read raw FEKEK
+        if (\array_key_exists(self::CONTEXT_FEKEK, $contextOptions)) {
+            $this->fekek = $contextOptions[self::CONTEXT_FEKEK];
+        }
         // Read passphrase from context and derive file encryption key encryption key (FEKEK)
-        if (\array_key_exists(self::CONTEXT_PASSPHRASE, $contextOptions)) {
+        elseif (\array_key_exists(self::CONTEXT_PASSPHRASE, $contextOptions)) {
             $this->fekek = Util::deriveFEKEK($contextOptions[self::CONTEXT_PASSPHRASE]);
-        } else {
-            $displayErrors && \trigger_error("Passphrase required!", \E_USER_WARNING);
+        }
+
+        else {
+            $displayErrors && \trigger_error("File encryption key encryption key or passphrase required!", \E_USER_WARNING);
             return false;
         }
 
